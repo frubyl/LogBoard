@@ -1,0 +1,168 @@
+openapi: 3.0.0
+info:
+  title: LogBoard API
+  description: API приложения для работы с логами "LogBoard".
+  version: 1.0.0
+
+tags:
+  - name: Authentication
+    description: Эндпоинты для аутентификации.
+
+
+paths:
+  /register:
+    post:
+      summary: Регистрация пользователя
+      description: Регистрирует нового пользователя с username и паролем.
+      operationId: registerUser
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCredentials'
+      responses:
+        '201':
+          description: Пользователь успешно зарегистрирован.
+        '400':
+          description: Возвращает первую обнаруженную ошибку валидации данных.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Пароль должен содержать минимум 1 цифру и 1 латинскую букву
+        '409':
+          description: Пользователь с таким username уже существует.
+
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Не удалось подключиться к базе данных
+
+  /login:
+    post:
+      summary: Вход пользователя
+      description: Аутентифицирует пользователя и выдает токены.
+      operationId: loginUser
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCredentials'
+      responses:
+        '200':
+          description: Успешный вход. Возвращает access token и refresh token.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  refresh_token:
+                    type: string
+        '400':
+          description: Возвращает первую обнаруженную ошибку валидации данных.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Пароль должен содержать минимум 1 цифру и 1 латинскую букву
+        '401':
+          description: Неверный логин или пароль.
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Не удалось подключиться к базе данных
+
+  /refresh-token:
+    post:
+      summary: Обновление access token
+      description: Использует refresh token для получения нового access token.
+      operationId: refreshToken
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+                  description: Refresh token пользователя.
+              required:
+                - refresh_token
+      responses:
+        '200':
+          description: Новый access token успешно получен.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+        '400':
+          description: Ошибка валидации данных.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Refresh token не может быть пустым
+        '401':
+          description: Refresh token истек.
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Не удалось подключиться к базе данных
+
+components:
+  schemas:
+    UserCredentials:
+      type: object
+      properties:
+        username:
+          type: string
+          pattern: "^[a-zA-Z0-9_]{4,50}$"
+          description: Уникальное имя пользователя, которое должно быть от 4 до 50 символов, только буквы, цифры и подчеркивания.
+        password:
+          type: string
+          pattern: "^(?=.*[A-Za-z])(?=.*\\d)[A-Za-z\\d]{8,}$"
+          description: Пароль пользователя, минимум 8 символов, должен включать хотя бы одну букву и одну цифру.
+      required:
+        - username
+        - password
