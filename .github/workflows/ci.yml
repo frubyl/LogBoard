@@ -10,39 +10,51 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    # Environment variables for the job
+    env:
+      SERVER_PORT: ${{ secrets.SERVER_PORT }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_USERNAME: ${{ secrets.DATABASE_USERNAME }}
+      DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      JWT_ACCESS_TOKEN_EXPIRATION: ${{ secrets.JWT_ACCESS_TOKEN_EXPIRATION }}
+      JWT_REFRESH_TOKEN_EXPIRATION: ${{ secrets.JWT_REFRESH_TOKEN_EXPIRATION }}
+
     steps:
     - uses: actions/checkout@v3
 
-    - name: Set up JDK 21
+    - name: Установка JDK 21
       uses: actions/setup-java@v3
       with:
         java-version: '21'
         distribution: 'temurin'
 
-    - name: Setup Gradle
+    - name: Настройка Gradle
       uses: gradle/gradle-build-action@v2
 
-    - name: Build Core Service
+    - name: Сборка Core сервиса
       run: |
         cd core
         ./gradlew build
 
-    - name: Run Core Tests
+    - name: Запуск Unit тестов
       run: |
         cd core
         ./gradlew test
-      continue-on-error: true
 
-    - name: Generate Core Jacoco Report
+    - name: Запуск Интеграционных тестов
+      run: |
+        cd core
+        ./gradlew integrationTest
+
+    - name: Генерация отчета покрытия кода
       run: |
         cd core
         ./gradlew jacocoTestReport
-      continue-on-error: true
 
-    - name: Upload coverage to Codecov
+    - name: Загрузка отчета о покрытии кода в Codecov
       uses: codecov/codecov-action@v3
       with:
         file: ./core/build/reports/jacoco/test/jacocoTestReport.xml
         flags: unittests
         name: codecov-core
-      continue-on-error: true
