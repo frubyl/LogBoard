@@ -35,7 +35,7 @@ jobs:
     - name: Сборка Core сервиса
       run: |
         cd core
-        ./gradlew build
+        ./gradlew build -x test
 
     - name: Запуск Unit тестов
       run: |
