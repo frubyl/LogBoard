@@ -31,11 +31,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: Пароль должен содержать минимум 1 цифру и 1 латинскую букву
+                $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Пользователь с таким username уже существует.
 
@@ -44,11 +40,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: Не удалось подключиться к базе данных
+                $ref: '#/components/schemas/ErrorResponse'
 
   /login:
     post:
@@ -80,11 +72,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: Пароль должен содержать минимум 1 цифру и 1 латинскую букву
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Неверный логин или пароль.
         '500':
@@ -92,11 +80,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: Не удалось подключиться к базе данных
+                $ref: '#/components/schemas/ErrorResponse'
 
   /refresh-token:
     post:
@@ -132,11 +116,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: Refresh token не может быть пустым
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Refresh token истек.
         '500':
@@ -144,14 +124,159 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: Не удалось подключиться к базе данных
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects:
+    post:
+      summary: Создание нового проекта
+      description: Создает новый проект с указанным названием. Пользователь, создающий проект, автоматически получает роль OWNER.
+      operationId: createProject
+      tags:
+        - Projects
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreateRequest'
+      responses:
+        '201':
+          description: Проект успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectCreateResponse'
+        '400':
+          description: Ошибка валидации данных
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Пользователь не авторизован
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: Получение списка проектов пользователя
+      description: Возвращает список всех проектов, в которых участвует текущий пользователь.
+      operationId: getUserProjects
+      tags:
+        - Projects
+      responses:
+        '200':
+          description: Список проектов успешно получен
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GetProjectsResponse'
+        '401':
+          description: Пользователь не авторизован
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects/{projectId}:
+    delete:
+      summary: Удаление проекта
+      description: Удаляет проект и все связанные с ним данные. Только владелец проекта может выполнить удаление.
+      operationId: deleteProject
+      tags:
+        - Projects
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID проекта
+      responses:
+        '200':
+          description: Проект успешно удален
+        '401':
+          description: Пользователь не авторизован
+        '403':
+          description: Недостаточно прав для выполнения операции
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Проект не найден
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
 components:
   schemas:
+    GetProjectsResponse:
+      type: array
+      items:
+        $ref: '#/components/schemas/GetProjectsResponseItem'
+    GetProjectsResponseItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор проекта
+        name:
+          type: string
+          description: Название проекта
+        description:
+          type: string
+          description: Описание проекта
+        created_at:
+          type: string
+          format: date-time
+          description: Дата и время создания проекта
+        updated_at:
+          type: string
+          format: date-time
+          description: Дата и время последнего обновления проекта
+        owner:
+          type: string
+          description: Username владельца проекта
+      required:
+        - id
+        - name
+        - created_at
+        - updated_at
+        - owner
+    ProjectCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Название проекта
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          description: Описание проекта
+          maxLength: 1000
+      required:
+        - name
+    ProjectCreateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор проекта
     UserCredentials:
       type: object
       properties:
@@ -166,3 +291,9 @@ components:
       required:
         - username
         - password
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Не удалось подключиться к базе данных
