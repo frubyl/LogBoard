@@ -1,0 +1,38 @@
+# Server configuration
+server:
+  port: ${SERVER_PORT:8080}
+
+# Database configuration
+spring:
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/logboard}
+    username: ${DATABASE_USERNAME:logboard}
+    password: ${DATABASE_PASSWORD:logboard}
+    driver-class-name: org.postgresql.Driver
+  
+  # JPA/Hibernate properties
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  
+  # Liquibase configuration
+  liquibase:
+    change-log: classpath:/db/changelog/db.changelog-master.yaml
+    enabled: true
+
+# JWT configuration
+jwt:
+  secret: ${JWT_SECRET:mySecretKeyForLogBoardApplicationWhichIsVeryLongAndSecure}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:3600000}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:86400000}
+
+# Logging
+logging:
+  level:
+    com.github.logboard: DEBUG
+    org.springframework.security: DEBUG
