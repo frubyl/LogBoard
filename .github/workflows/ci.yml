@@ -10,16 +10,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # Environment variables for the job
-    env:
-      SERVER_PORT: "$SERVER_PORT"
-      DATABASE_URL: "$DATABASE_URL"
-      DATABASE_USERNAME: "$DATABASE_USERNAME"
-      DATABASE_PASSWORD: "$DATABASE_PASSWORD"
-      JWT_SECRET: "$JWT_SECRET"
-      JWT_ACCESS_TOKEN_EXPIRATION: "$JWT_ACCESS_TOKEN_EXPIRATION"
-      JWT_REFRESH_TOKEN_EXPIRATION: "$JWT_REFRESH_TOKEN_EXPIRATION"
-
     steps:
       - uses: actions/checkout@v3
 

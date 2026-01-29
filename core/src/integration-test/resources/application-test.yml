@@ -1,0 +1,16 @@
+# Server configuration
+server:
+  port: 0
+
+# JWT configuration
+jwt:
+  secret: test-secret-key-for-integration-tests-which-is-very-long-and-secure
+  access-token-expiration: 3600000  # 1 hour
+  refresh-token-expiration: 86400000  # 24 hours
+
+# Logging
+logging:
+  level:
+    com.github.logboard: INFO
+    org.springframework.security: WARN
+    org.testcontainers: INFO
