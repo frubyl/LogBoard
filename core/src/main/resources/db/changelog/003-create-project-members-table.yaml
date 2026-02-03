@@ -1,0 +1,51 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-create-project-members-table
+      author: logboard
+      changes:
+        - createTable:
+            tableName: project_members
+            columns:
+              - column:
+                  name: project_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: role
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addPrimaryKey:
+            tableName: project_members
+            columnNames: project_id, user_id
+            constraintName: pk_project_members
+        - addForeignKeyConstraint:
+            baseTableName: project_members
+            baseColumnNames: project_id
+            referencedTableName: projects
+            referencedColumnNames: id
+            constraintName: fk_project_members_project
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: project_members
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_project_members_user
+            onDelete: CASCADE

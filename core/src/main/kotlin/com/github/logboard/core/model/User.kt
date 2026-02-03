@@ -7,6 +7,7 @@ import java.time.LocalDateTime
 
 @Entity
 @Table(name = "users")
+@EntityListeners(EntityTimestampListener::class)
 class User(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,11 +23,11 @@ class User(
     @field:Size(min = 8, message = "Password must be at least 8 characters long")
     var password: String = "",
 
-    @Column(name = "created_at")
-    var createdAt: LocalDateTime = LocalDateTime.now(),
+    @Column(name = "created_at", nullable = false, updatable = false)
+    var createdAt: LocalDateTime? = null,
 
-    @Column(name = "updated_at")
-    var updatedAt: LocalDateTime = LocalDateTime.now()
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: LocalDateTime? = null
 ) {
-    constructor() : this(null, "", "", LocalDateTime.now(), LocalDateTime.now())
+    constructor() : this(null, "", "", null, null)
 }
