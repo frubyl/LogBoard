@@ -3,9 +3,8 @@ package com.github.logboard.core.exception
 import com.github.logboard.core.dto.ErrorResponse
 import com.github.logboard.core.exception.authentication.UnauthorizedException
 import com.github.logboard.core.exception.common.AlreadyExistsException
+import com.github.logboard.core.exception.common.ForbiddenException
 import com.github.logboard.core.exception.common.NotFoundException
-import jdk.internal.joptsimple.internal.Messages.message
-import jdk.internal.net.http.common.Log.errors
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -29,6 +28,7 @@ class ExceptionControllerAdvice : ResponseEntityExceptionHandler() {
         NotFoundException::class,
         AlreadyExistsException::class,
         UnauthorizedException::class,
+        ForbiddenException::class,
         BadCredentialsException::class,
         IllegalArgumentException::class
     )
@@ -40,6 +40,7 @@ class ExceptionControllerAdvice : ResponseEntityExceptionHandler() {
             is NotFoundException -> HttpStatus.NOT_FOUND
             is AlreadyExistsException -> HttpStatus.CONFLICT
             is UnauthorizedException, is BadCredentialsException -> HttpStatus.UNAUTHORIZED
+            is ForbiddenException -> HttpStatus.FORBIDDEN
             is IllegalArgumentException -> HttpStatus.BAD_REQUEST
             else -> HttpStatus.INTERNAL_SERVER_ERROR
         }

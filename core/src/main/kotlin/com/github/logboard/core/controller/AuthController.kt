@@ -26,7 +26,6 @@ class AuthController(
 
     @PostMapping("/login")
     fun login(@Valid @RequestBody authRequest: AuthRequest): ResponseEntity<AuthResponse> {
-        // Authenticate user
         authenticationManager.authenticate(
             UsernamePasswordAuthenticationToken(
                 authRequest.username,
@@ -34,7 +33,6 @@ class AuthController(
             )
         )
         
-        // Generate tokens
         val authResponse = userService.generateTokensForUser(authRequest.username)
         return ResponseEntity.ok(authResponse)
     }

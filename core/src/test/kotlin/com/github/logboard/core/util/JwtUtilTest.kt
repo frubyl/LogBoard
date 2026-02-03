@@ -131,7 +131,6 @@ class JwtUtilTest {
         val expiredJwtUtil = JwtUtil(expiredJwtProperties)
         val token = expiredJwtUtil.generateAccessToken(testUser)
 
-        // Wait for token to expire
         Thread.sleep(10)
 
         // When

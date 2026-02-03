@@ -19,6 +19,8 @@ abstract class AbstractIntegrationTest {
             .withDatabaseName("logboard_test")
             .withUsername("test")
             .withPassword("test")
+            .withReuse(true)
+            .withStartupTimeoutSeconds(60)
 
         @JvmStatic
         @DynamicPropertySource
@@ -26,6 +28,8 @@ abstract class AbstractIntegrationTest {
             registry.add("spring.datasource.url", postgres::getJdbcUrl)
             registry.add("spring.datasource.username", postgres::getUsername)
             registry.add("spring.datasource.password", postgres::getPassword)
+            registry.add("spring.datasource.hikari.maximum-pool-size") { "10" }
+            registry.add("spring.datasource.hikari.connection-timeout") { "30000" }
         }
     }
 }
