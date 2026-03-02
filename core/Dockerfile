@@ -3,6 +3,6 @@ WORKDIR /app
 COPY . .
 RUN gradle bootJar --no-daemon
 
-FROM openjdk:21-slim
+FROM eclipse-temurin:21-jre-alpine
 COPY --from=build /app/build/libs/*.jar /app.jar
 CMD ["java", "-jar", "/app.jar"]
