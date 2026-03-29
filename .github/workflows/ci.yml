@@ -180,6 +180,6 @@ jobs:
           script: |
             docker pull ghcr.io/frubyl/logboard-core:${{ needs.version.outputs.new_tag }}
             cd ~/logboard
-            docker compose -f docker-compose.yml down
-            docker compose -f docker-compose.yml up -d
+            docker-compose -f docker-compose.yml down
+            docker-compose -f docker-compose.yml up -d
             docker image prune -f
