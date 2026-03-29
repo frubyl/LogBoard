@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  db:
+    environment:
+      POSTGRES_DB: logboard
+      POSTGRES_USER: logboard
+      POSTGRES_PASSWORD: logboard
+
+  app:
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/logboard
+      DATABASE_USERNAME: logboard
+      DATABASE_PASSWORD: logboard
+      JWT_SECRET: devSecretKeyForLogBoardApplicationWhichIsVeryLongAndSecure
+      JWT_ACCESS_TOKEN_EXPIRATION: "3600000"
+      JWT_REFRESH_TOKEN_EXPIRATION: "86400000"
