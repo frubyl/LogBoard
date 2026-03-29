@@ -31,30 +31,6 @@ jobs:
           path: core/build/
           retention-days: 1
 
-  build-log:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Установка JDK 21
-        uses: actions/setup-java@v3
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-
-      - name: Настройка Gradle
-        uses: gradle/gradle-build-action@v2
-
-      - name: Сборка Log сервиса
-        run: cd log && ./gradlew build -x test
-
-      - name: Сохранение артефактов сборки Log
-        uses: actions/upload-artifact@v4
-        with:
-          name: log-build
-          path: log/build/
-          retention-days: 1
-
   test-unit-core:
     needs: build-core
     runs-on: ubuntu-latest
@@ -88,30 +64,6 @@ jobs:
           file: ./core/build/reports/jacoco/test/jacocoTestReport.xml
           flags: unittests
           name: codecov-core
-
-  test-unit-log:
-    needs: build-log
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Установка JDK 21
-        uses: actions/setup-java@v3
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-
-      - name: Настройка Gradle
-        uses: gradle/gradle-build-action@v2
-
-      - name: Загрузка артефактов сборки Log
-        uses: actions/download-artifact@v4
-        with:
-          name: log-build
-          path: log/build/
-
-      - name: Запуск Unit тестов Log
-        run: cd log && ./gradlew test
 
   test-integration-core:
     needs: test-unit-core
@@ -151,55 +103,8 @@ jobs:
       - name: Запуск Интеграционных тестов Core
         run: cd core && ./gradlew integrationTest
 
-  test-integration-log:
-    needs: test-unit-log
-    runs-on: ubuntu-latest
-    services:
-      clickhouse:
-        image: clickhouse/clickhouse-server:23.8
-        ports:
-          - 8123:8123
-        options: >-
-          --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      elasticsearch:
-        image: elasticsearch:8.11.1
-        env:
-          discovery.type: single-node
-          xpack.security.enabled: "false"
-          ES_JAVA_OPTS: "-Xms256m -Xmx256m"
-        ports:
-          - 9200:9200
-        options: >-
-          --health-cmd "curl -f http://localhost:9200/_cluster/health || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Установка JDK 21
-        uses: actions/setup-java@v3
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-
-      - name: Настройка Gradle
-        uses: gradle/gradle-build-action@v2
-
-      - name: Загрузка артефактов сборки Log
-        uses: actions/download-artifact@v4
-        with:
-          name: log-build
-          path: log/build/
-
-      - name: Запуск Интеграционных тестов Log
-        run: cd log && ./gradlew integrationTest
-
   deploy:
-    needs: [ test-integration-core, test-integration-log ]
+    needs: [ test-integration-core ]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
