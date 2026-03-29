@@ -125,13 +125,19 @@ jobs:
           WITH_V: true
 
   publish:
-    needs: version
+    needs: [ version, build-core ]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v3
+
+      - name: Загрузка артефактов сборки Core
+        uses: actions/download-artifact@v4
+        with:
+          name: core-build
+          path: core/build/
 
       - name: Авторизация в GitHub Container Registry
         uses: docker/login-action@v3
@@ -144,6 +150,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./core
+          file: ./core/Dockerfile.ci
           push: true
           tags: |
             ghcr.io/frubyl/logboard-core:${{ needs.version.outputs.new_tag }}
