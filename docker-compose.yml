@@ -19,9 +19,7 @@ services:
       retries: 3
 
   app:
-    build:
-      context: ./core
-      dockerfile: Dockerfile
+    image: ghcr.io/frubyl/logboard-core:latest
     container_name: logboard-app
     ports:
       - "8080:8080"

@@ -8,6 +8,9 @@ services:
       POSTGRES_PASSWORD: logboard
 
   app:
+    build:
+      context: ./core
+      dockerfile: Dockerfile
     environment:
       DATABASE_URL: jdbc:postgresql://db:5432/logboard
       DATABASE_USERNAME: logboard
