@@ -162,13 +162,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Копирование docker-compose.yml на сервер
+      - name: Копирование docker-compose.yml и openapi.yaml на сервер
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: docker-compose.yml
+          source: "docker-compose.yml,docs/openapi.yaml"
           target: ~/logboard/
 
       - name: Деплой на сервер
