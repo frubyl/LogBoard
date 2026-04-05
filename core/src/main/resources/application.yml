@@ -30,9 +30,3 @@ jwt:
   secret: ${JWT_SECRET:mySecretKeyForLogBoardApplicationWhichIsVeryLongAndSecure}
   access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:3600000}
   refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:86400000}
-
-# Logging
-logging:
-  level:
-    com.github.logboard: DEBUG
-    org.springframework.security: DEBUG

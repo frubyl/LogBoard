@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <appender name="TELEGRAM" class="com.github.logboard.core.logging.TelegramAppender">
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <botToken>${TELEGRAM_BOT_TOKEN:-}</botToken>
+        <chatId>${TELEGRAM_CHAT_ID:-}</chatId>
+    </appender>
+
+    <appender name="ASYNC_TELEGRAM" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>64</queueSize>
+        <neverBlock>true</neverBlock>
+        <appender-ref ref="TELEGRAM"/>
+    </appender>
+
+    <logger name="com.github.logboard" level="DEBUG"/>
+    <logger name="org.springframework" level="WARN"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_TELEGRAM"/>
+    </root>
+
+</configuration>
