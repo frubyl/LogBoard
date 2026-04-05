@@ -37,7 +37,7 @@ class AuthIntegrationTest : AbstractIntegrationTest() {
         val authRequest = AuthRequest("testuser_unique1", "password123")
 
         // When & Then
-        mockMvc.post("/api/auth/register") {
+        mockMvc.post("/register") {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(authRequest)
         }.andExpect {
@@ -54,13 +54,13 @@ class AuthIntegrationTest : AbstractIntegrationTest() {
     fun `should fail to register user with existing username`() {
         // Given
         val authRequest = AuthRequest("testuser_unique2", "password123")
-        mockMvc.post("/api/auth/register") {
+        mockMvc.post("/register") {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(authRequest)
         }
 
         // When & Then
-        mockMvc.post("/api/auth/register") {
+        mockMvc.post("/register") {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(authRequest)
         }.andExpect {
@@ -76,13 +76,13 @@ class AuthIntegrationTest : AbstractIntegrationTest() {
     fun `should authenticate user successfully`() {
         // Given
         val authRequest = AuthRequest("testuser_unique3", "password123")
-        mockMvc.post("/api/auth/register") {
+        mockMvc.post("/register") {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(authRequest)
         }
 
         // When & Then
-        mockMvc.post("/api/auth/login") {
+        mockMvc.post("/login") {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(authRequest)
         }.andExpect {
@@ -101,7 +101,7 @@ class AuthIntegrationTest : AbstractIntegrationTest() {
         val authRequest = AuthRequest("nonexistent", "wrongpass123")
 
         // When & Then
-        mockMvc.post("/api/auth/login") {
+        mockMvc.post("/login") {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(authRequest)
         }.andExpect {

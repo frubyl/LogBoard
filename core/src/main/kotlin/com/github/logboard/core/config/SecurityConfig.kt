@@ -34,7 +34,7 @@ class SecurityConfig(
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { authorize ->
                 authorize
-                    .requestMatchers("/api/auth/**").permitAll()
+                    .requestMatchers("/register", "/login", "/refresh").permitAll()
                     .anyRequest().authenticated()
             }
             .exceptionHandling { exception ->
