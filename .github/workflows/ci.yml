@@ -178,7 +178,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
-            docker pull ghcr.io/frubyl/logboard-core:${{ needs.version.outputs.new_tag }}
+            docker pull ghcr.io/frubyl/logboard-core:latest
             cd ~/logboard
             docker-compose -f docker-compose.yml down
             docker-compose -f docker-compose.yml up -d
