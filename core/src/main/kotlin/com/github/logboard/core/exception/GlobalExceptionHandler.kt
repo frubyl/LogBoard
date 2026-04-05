@@ -49,12 +49,12 @@ class ExceptionControllerAdvice : ResponseEntityExceptionHandler() {
         return handleExceptionInternal(ex, buildErrorResponse(status, ex), HttpHeaders(), status, request)
     }
 
-    @ExceptionHandler(RuntimeException::class)
-    fun handleRuntimeException(
-        ex: RuntimeException,
+    @ExceptionHandler(Exception::class)
+    fun handleAllExceptions(
+        ex: Exception,
         request: WebRequest
     ): ResponseEntity<Any>? {
-        log.error("Runtime exception occurred: ${ex.message}", ex)
+        log.error("Unhandled exception occurred: ${ex.javaClass.simpleName} - ${ex.message}", ex)
         return handleExceptionInternal(
             ex,
             buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex),
