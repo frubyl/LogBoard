@@ -41,14 +41,14 @@ class ProjectIntegrationTest : AbstractIntegrationTest() {
     private fun registerAndLogin(username: String, password: String): String {
         val authRequest = AuthRequest(username, password)
 
-        mockMvc.post("/api/auth/register") {
+        mockMvc.post("/register") {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(authRequest)
         }.andExpect {
             status { isCreated() }
         }
 
-        val loginResult = mockMvc.post("/api/auth/login") {
+        val loginResult = mockMvc.post("/login") {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(authRequest)
         }.andExpect {
@@ -68,7 +68,7 @@ class ProjectIntegrationTest : AbstractIntegrationTest() {
         val request = ProjectCreateRequest("Test Project", "Test Description")
 
         // When
-        val result = mockMvc.post("/api/projects") {
+        val result = mockMvc.post("/projects") {
             contentType = MediaType.APPLICATION_JSON
             header("Authorization", "Bearer $token")
             content = objectMapper.writeValueAsString(request)
@@ -98,20 +98,20 @@ class ProjectIntegrationTest : AbstractIntegrationTest() {
         val request1 = ProjectCreateRequest("Project 1", "Description 1")
         val request2 = ProjectCreateRequest("Project 2", "Description 2")
 
-        mockMvc.post("/api/projects") {
+        mockMvc.post("/projects") {
             contentType = MediaType.APPLICATION_JSON
             header("Authorization", "Bearer $token")
             content = objectMapper.writeValueAsString(request1)
         }
 
-        mockMvc.post("/api/projects") {
+        mockMvc.post("/projects") {
             contentType = MediaType.APPLICATION_JSON
             header("Authorization", "Bearer $token")
             content = objectMapper.writeValueAsString(request2)
         }
 
         // When & Then
-        mockMvc.get("/api/projects") {
+        mockMvc.get("/projects") {
             header("Authorization", "Bearer $token")
         }.andExpect {
             status { isOk() }
@@ -128,7 +128,7 @@ class ProjectIntegrationTest : AbstractIntegrationTest() {
         val token = registerAndLogin("projectuser3", "password123")
         val request = ProjectCreateRequest("Project to Delete", "Will be deleted")
 
-        val createResult = mockMvc.post("/api/projects") {
+        val createResult = mockMvc.post("/projects") {
             contentType = MediaType.APPLICATION_JSON
             header("Authorization", "Bearer $token")
             content = objectMapper.writeValueAsString(request)
@@ -138,7 +138,7 @@ class ProjectIntegrationTest : AbstractIntegrationTest() {
         val projectId = UUID.fromString(response.get("id").asText())
 
         // When
-        mockMvc.delete("/api/projects/$projectId") {
+        mockMvc.delete("/projects/$projectId") {
             header("Authorization", "Bearer $token")
         }.andExpect {
             status { isOk() }
@@ -159,7 +159,7 @@ class ProjectIntegrationTest : AbstractIntegrationTest() {
         val nonExistentId = UUID.randomUUID()
 
         // When & Then
-        mockMvc.delete("/api/projects/$nonExistentId") {
+        mockMvc.delete("/projects/$nonExistentId") {
             header("Authorization", "Bearer $token")
         }.andExpect {
             status { isNotFound() }
@@ -173,7 +173,7 @@ class ProjectIntegrationTest : AbstractIntegrationTest() {
         val request = ProjectCreateRequest("Unauthorized Project", "Should fail")
 
         // When & Then
-        mockMvc.post("/api/projects") {
+        mockMvc.post("/projects") {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(request)
         }.andExpect {
@@ -184,7 +184,7 @@ class ProjectIntegrationTest : AbstractIntegrationTest() {
     @Test
     fun `should return 401 when listing projects without authentication`() {
         // When & Then
-        mockMvc.get("/api/projects").andExpect {
+        mockMvc.get("/projects").andExpect {
             status { isUnauthorized() }
         }
     }
@@ -197,7 +197,7 @@ class ProjectIntegrationTest : AbstractIntegrationTest() {
 
         val request = ProjectCreateRequest("Owner's Project", "Only owner can delete")
 
-        val createResult = mockMvc.post("/api/projects") {
+        val createResult = mockMvc.post("/projects") {
             contentType = MediaType.APPLICATION_JSON
             header("Authorization", "Bearer $ownerToken")
             content = objectMapper.writeValueAsString(request)
@@ -207,7 +207,7 @@ class ProjectIntegrationTest : AbstractIntegrationTest() {
         val projectId = UUID.fromString(response.get("id").asText())
 
         // When & Then
-        mockMvc.delete("/api/projects/$projectId") {
+        mockMvc.delete("/projects/$projectId") {
             header("Authorization", "Bearer $nonOwnerToken")
         }.andExpect {
             status { isForbidden() }
@@ -225,7 +225,7 @@ class ProjectIntegrationTest : AbstractIntegrationTest() {
 
         val emptyNameRequest = ProjectCreateRequest("", "Valid description")
 
-        mockMvc.post("/api/projects") {
+        mockMvc.post("/projects") {
             contentType = MediaType.APPLICATION_JSON
             header("Authorization", "Bearer $token")
             content = objectMapper.writeValueAsString(emptyNameRequest)
@@ -235,7 +235,7 @@ class ProjectIntegrationTest : AbstractIntegrationTest() {
 
         val longNameRequest = ProjectCreateRequest("a".repeat(101), "Valid description")
 
-        mockMvc.post("/api/projects") {
+        mockMvc.post("/projects") {
             contentType = MediaType.APPLICATION_JSON
             header("Authorization", "Bearer $token")
             content = objectMapper.writeValueAsString(longNameRequest)
@@ -245,7 +245,7 @@ class ProjectIntegrationTest : AbstractIntegrationTest() {
 
         val longDescriptionRequest = ProjectCreateRequest("Valid Name", "a".repeat(1001))
 
-        mockMvc.post("/api/projects") {
+        mockMvc.post("/projects") {
             contentType = MediaType.APPLICATION_JSON
             header("Authorization", "Bearer $token")
             content = objectMapper.writeValueAsString(longDescriptionRequest)
@@ -260,7 +260,7 @@ class ProjectIntegrationTest : AbstractIntegrationTest() {
         val token = registerAndLogin("projectuser7", "password123")
 
         // When & Then
-        mockMvc.get("/api/projects") {
+        mockMvc.get("/projects") {
             header("Authorization", "Bearer $token")
         }.andExpect {
             status { isOk() }
