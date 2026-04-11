@@ -48,7 +48,8 @@ class SecurityConfig(
                     .requestMatchers(
                         AntPathRequestMatcher("/register"),
                         AntPathRequestMatcher("/login"),
-                        AntPathRequestMatcher("/refresh")
+                        AntPathRequestMatcher("/refresh"),
+                        AntPathRequestMatcher("/logout")
                     ).permitAll()
                     .anyRequest().authenticated()
             }
