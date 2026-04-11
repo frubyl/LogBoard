@@ -11,6 +11,10 @@ servers:
 tags:
   - name: Authentication
     description: Эндпоинты для аутентификации.
+  - name: Projects
+    description: Эндпоинты для управления проектами.
+  - name: Logs
+    description: Эндпоинты для работы с логами.
 
 security:
   - bearerAuth: []
@@ -229,6 +233,90 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /logs/search:
+    post:
+      summary: Поиск логов проекта
+      description: Возвращает логи проекта с фильтрацией по уровню, тексту сообщения и временному периоду. Доступно всем участникам проекта.
+      operationId: searchProjectLogs
+      tags:
+        - Logs
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogSearchRequest'
+      responses:
+        '200':
+          description: Логи успешно получены.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogSearchResponse'
+        '400':
+          description: Ошибка валидации данных.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Пользователь не авторизован.
+        '403':
+          description: Пользователь не является участником проекта.
+        '404':
+          description: Проект не найден.
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /logs/timeline:
+    post:
+      summary: Таймлайн логов проекта
+      description: Возвращает агрегированные счётчики логов по временной шкале на основе тех же фильтров, что и поиск. Обрабатывает всю выборку без пагинации. Доступно всем участникам проекта.
+      operationId: getProjectLogsTimeline
+      tags:
+        - Logs
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogTimelineRequest'
+      responses:
+        '200':
+          description: Таймлайн успешно получен.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TimelineItem'
+        '400':
+          description: Ошибка валидации данных.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Пользователь не авторизован.
+        '403':
+          description: Пользователь не является участником проекта.
+        '404':
+          description: Проект не найден.
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -236,6 +324,123 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    LogTimelineRequest:
+      type: object
+      properties:
+        projectId:
+          type: string
+          format: uuid
+          description: ID проекта.
+        level:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogLevel'
+          description: Фильтр по уровням лога (можно указать несколько).
+        message:
+          type: string
+          description: Полнотекстовый поиск по сообщению (регистронезависимо). Работает только если ClickHouse хранит поле message.
+        from:
+          type: string
+          format: date-time
+          description: Начало временного периода.
+        to:
+          type: string
+          format: date-time
+          description: Конец временного периода.
+      required:
+        - projectId
+        - from
+        - to
+    LogSearchRequest:
+      type: object
+      properties:
+        projectId:
+          type: string
+          format: uuid
+          description: ID проекта.
+        level:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogLevel'
+          description: Фильтр по уровням лога (можно указать несколько).
+        message:
+          type: string
+          description: Полнотекстовый поиск по сообщению (регистронезависимо).
+        from:
+          type: string
+          format: date-time
+          description: Начало временного периода.
+        to:
+          type: string
+          format: date-time
+          description: Конец временного периода.
+        size:
+          type: integer
+          default: 50
+          description: Количество записей на странице.
+        cursor:
+          type: string
+          format: date-time
+          description: Курсор для получения следующей страницы (timestamp последнего лога из предыдущей выборки).
+      required:
+        - projectId
+        - from
+        - to
+    LogSearchResponse:
+      type: object
+      properties:
+        logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogEntry'
+        nextCursor:
+          type: string
+          format: date-time
+          description: Курсор для получения следующей страницы (timestamp последнего лога из предыдущей выборки). Отсутствует если страниц больше нет.
+        totalCount:
+          type: integer
+          description: Общее количество логов, соответствующих фильтру.
+      required:
+        - logs
+        - totalCount
+    LogLevel:
+      type: string
+      enum: [TRACE, DEBUG, INFO, WARN, ERROR]
+    LogEntry:
+      type: object
+      properties:
+        level:
+          $ref: '#/components/schemas/LogLevel'
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - level
+        - message
+        - timestamp
+    TimelineItem:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Начало интервала.
+        totalCount:
+          type: integer
+          description: Общее количество логов за интервал.
+        errorCount:
+          type: integer
+          description: Количество логов уровня ERROR за интервал.
+        warnCount:
+          type: integer
+          description: Количество логов уровня WARN за интервал.
+      required:
+        - timestamp
+        - totalCount
+        - errorCount
+        - warnCount
     GetProjectsResponse:
       type: array
       items:
@@ -253,11 +458,11 @@ components:
         description:
           type: string
           description: Описание проекта
-        created_at:
+        createdAt:
           type: string
           format: date-time
           description: Дата и время создания проекта
-        updated_at:
+        updatedAt:
           type: string
           format: date-time
           description: Дата и время последнего обновления проекта
@@ -267,8 +472,8 @@ components:
       required:
         - id
         - name
-        - created_at
-        - updated_at
+        - createdAt
+        - updatedAt
         - owner
     ProjectCreateRequest:
       type: object
