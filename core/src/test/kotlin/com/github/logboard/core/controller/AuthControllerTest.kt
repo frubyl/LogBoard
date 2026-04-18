@@ -1,11 +1,12 @@
 package com.github.logboard.core.controller
 
+import com.github.logboard.core.config.JwtProperties
 import com.github.logboard.core.dto.AuthRequest
 import com.github.logboard.core.dto.AuthResponse
-import com.github.logboard.core.dto.RefreshTokenRequest
 import com.github.logboard.core.model.User
 import com.github.logboard.core.service.UserService
 import io.kotest.matchers.shouldBe
+import jakarta.servlet.http.Cookie
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
@@ -13,7 +14,11 @@ import org.mockito.Mock
 import org.mockito.Mockito.*
 import org.mockito.junit.jupiter.MockitoExtension
 import org.springframework.http.HttpStatus
+import org.springframework.mock.web.MockHttpServletRequest
+import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.security.authentication.AuthenticationManager
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
+import java.lang.reflect.Field
 
 @ExtendWith(MockitoExtension::class)
 class AuthControllerTest {
@@ -24,8 +29,22 @@ class AuthControllerTest {
     @Mock
     private lateinit var authenticationManager: AuthenticationManager
 
+    @Mock
+    private lateinit var jwtProperties: JwtProperties
+
     @InjectMocks
     private lateinit var authController: AuthController
+
+    private fun setupJwtProperties() {
+        `when`(jwtProperties.accessTokenCookieMaxAge).thenReturn(900)
+        `when`(jwtProperties.refreshTokenCookieMaxAge).thenReturn(604800)
+    }
+
+    private fun setCookies(request: MockHttpServletRequest, cookies: Array<Cookie>) {
+        val field: Field = MockHttpServletRequest::class.java.getDeclaredField("cookies")
+        field.isAccessible = true
+        field.set(request, cookies)
+    }
 
     @Test
     fun `register should return success response when user is registered successfully`() {
@@ -45,41 +64,87 @@ class AuthControllerTest {
     }
 
     @Test
-    fun `login should return auth response when credentials are valid`() {
+    fun `login should set cookies when credentials are valid`() {
         // Given
+        setupJwtProperties()
         val authRequest = AuthRequest("testuser", "password123")
         val authResponse = AuthResponse("access-token", "refresh-token")
+        val response = MockHttpServletResponse()
         `when`(userService.generateTokensForUser(authRequest.username)).thenReturn(authResponse)
 
         // When
-        val response = authController.login(authRequest)
+        val result = authController.login(authRequest, response)
 
         // Then
-        response.statusCode shouldBe HttpStatus.OK
-        val body = response.body as AuthResponse
-        body.accessToken shouldBe "access-token"
-        body.refreshToken shouldBe "refresh-token"
+        result.statusCode shouldBe HttpStatus.OK
+        result.body shouldBe null
 
-        verify(authenticationManager).authenticate(any())
+        val cookies = response.cookies
+        cookies.size shouldBe 2
+        cookies.find { it.name == "access_token" }?.value shouldBe "access-token"
+        cookies.find { it.name == "refresh_token" }?.value shouldBe "refresh-token"
+
+        verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken::class.java))
         verify(userService).generateTokensForUser(authRequest.username)
     }
 
     @Test
-    fun `refresh should return new auth response when refresh token is valid`() {
+    fun `refresh should set new cookies when refresh token is valid`() {
         // Given
-        val refreshTokenRequest = RefreshTokenRequest("valid-refresh-token")
+        setupJwtProperties()
+        val request = MockHttpServletRequest()
+        setCookies(request, arrayOf(Cookie("refresh_token", "valid-refresh-token")))
+        val response = MockHttpServletResponse()
         val authResponse = AuthResponse("new-access-token", "new-refresh-token")
         `when`(userService.refreshToken("valid-refresh-token")).thenReturn(authResponse)
 
         // When
-        val response = authController.refresh(refreshTokenRequest)
+        val result = authController.refresh(request, response)
 
         // Then
-        response.statusCode shouldBe HttpStatus.OK
-        val body = response.body as AuthResponse
-        body.accessToken shouldBe "new-access-token"
-        body.refreshToken shouldBe "new-refresh-token"
+        result.statusCode shouldBe HttpStatus.OK
+        result.body shouldBe null
+
+        val cookies = response.cookies
+        cookies.size shouldBe 2
+        cookies.find { it.name == "access_token" }?.value shouldBe "new-access-token"
+        cookies.find { it.name == "refresh_token" }?.value shouldBe "new-refresh-token"
 
         verify(userService).refreshToken("valid-refresh-token")
+    }
+
+    @Test
+    fun `refresh should return 401 when refresh token is missing`() {
+        // Given
+        val request = MockHttpServletRequest()
+        val response = MockHttpServletResponse()
+
+        // When
+        val result = authController.refresh(request, response)
+
+        // Then
+        result.statusCode shouldBe HttpStatus.UNAUTHORIZED
+
+        verifyNoInteractions(userService)
+    }
+
+    @Test
+    fun `logout should clear cookies`() {
+        // Given
+        val request = MockHttpServletRequest()
+        val response = MockHttpServletResponse()
+
+        // When
+        val result = authController.logout(request, response)
+
+        // Then
+        result.statusCode shouldBe HttpStatus.OK
+        result.body shouldBe null
+
+        val cookies = response.cookies
+        cookies.size shouldBe 2
+        cookies.find { it.name == "access_token" }?.value shouldBe ""
+        cookies.find { it.name == "refresh_token" }?.value shouldBe ""
+        cookies.forEach { it.maxAge shouldBe 0 }
     }
 }

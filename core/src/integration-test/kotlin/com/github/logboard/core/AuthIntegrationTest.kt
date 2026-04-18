@@ -82,14 +82,18 @@ class AuthIntegrationTest : AbstractIntegrationTest() {
         }
 
         // When & Then
-        mockMvc.post("/login") {
+        val result = mockMvc.post("/login") {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(authRequest)
         }.andExpect {
             status { isOk() }
-            jsonPath("$.accessToken") { exists() }
-            jsonPath("$.refreshToken") { exists() }
-        }
+        }.andReturn()
+
+        val cookies = result.response.cookies
+        cookies shouldNotBe null
+        cookies.size shouldBe 2
+        cookies.find { it.name == "access_token" } shouldNotBe null
+        cookies.find { it.name == "refresh_token" } shouldNotBe null
 
         val savedUser = userRepository.findByUsername("testuser_unique3")
         savedUser shouldNotBe null

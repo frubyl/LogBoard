@@ -17,7 +17,7 @@ tags:
     description: Эндпоинты для работы с логами.
 
 security:
-  - bearerAuth: []
+  - cookieAuth: []
 
 paths:
   /register:
@@ -56,7 +56,7 @@ paths:
   /login:
     post:
       summary: Вход пользователя
-      description: Аутентифицирует пользователя и выдает токены.
+      description: Аутентифицирует пользователя и выдает токены через HTTP-only cookies.
       operationId: loginUser
       tags:
         - Authentication
@@ -69,16 +69,17 @@ paths:
               $ref: '#/components/schemas/UserCredentials'
       responses:
         '200':
-          description: Успешный вход. Возвращает access token и refresh token.
-          content:
-            application/json:
+          description: Успешный вход. Токены устанавливаются через Set-Cookie заголовки.
+          headers:
+            Set-Cookie:
               schema:
-                type: object
-                properties:
-                  access_token:
-                    type: string
-                  refresh_token:
-                    type: string
+                type: string
+              example: access_token=eyJ...; HttpOnly; SameSite=Strict; Path=/; Max-Age=900
+            X-Set-Cookie:
+              schema:
+                type: string
+              description: Refresh token устанавливается через X-Set-Cookie заголовок (для избежания конфликтов с SameSite).
+              example: refresh_token=eyJ...; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800
         '400':
           description: Возвращает первую обнаруженную ошибку валидации данных.
           content:
@@ -97,41 +98,48 @@ paths:
   /refresh:
     post:
       summary: Обновление access token
-      description: Использует refresh token для получения нового access token.
+      description: Использует refresh token из cookie для получения нового access token. Браузер автоматически отправляет cookie.
       operationId: refreshToken
       tags:
         - Authentication
       security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                refresh_token:
-                  type: string
-                  description: Refresh token пользователя.
-              required:
-                - refresh_token
       responses:
         '200':
-          description: Новый access token успешно получен.
-          content:
-            application/json:
+          description: Новый access token успешно получен и установлен через Set-Cookie.
+          headers:
+            Set-Cookie:
               schema:
-                type: object
-                properties:
-                  access_token:
-                    type: string
-        '400':
-          description: Ошибка валидации данных.
+                type: string
+              example: access_token=eyJ...; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=900
+        '401':
+          description: Refresh token истек или отсутствует.
+        '500':
+          description: Внутренняя ошибка сервера.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Refresh token истек.
+
+  /logout:
+    post:
+      summary: Выход пользователя
+      description: Очищает HTTP-only cookies с токенами.
+      operationId: logoutUser
+      tags:
+        - Authentication
+      security: []
+      responses:
+        '200':
+          description: Пользователь успешно вышел. Cookies очищены.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              example: access_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0
+            X-Set-Cookie:
+              schema:
+                type: string
+              example: refresh_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0
         '500':
           description: Внутренняя ошибка сервера.
           content:
@@ -241,7 +249,7 @@ paths:
       tags:
         - Logs
       security:
-        - bearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
@@ -282,7 +290,7 @@ paths:
       tags:
         - Logs
       security:
-        - bearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
@@ -319,10 +327,16 @@ paths:
 
 components:
   securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+      description: Access token передаётся через HTTP-only cookie "access_token".
+    refreshCookieAuth:
+      type: apiKey
+      in: cookie
+      name: refresh_token
+      description: Refresh token передаётся через HTTP-only cookie "refresh_token". Используется только в эндпоинте /refresh.
   schemas:
     LogTimelineRequest:
       type: object

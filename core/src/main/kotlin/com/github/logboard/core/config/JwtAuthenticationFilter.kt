@@ -20,8 +20,7 @@ class JwtAuthenticationFilter(
 
     companion object {
         private val log = LoggerFactory.getLogger(JwtAuthenticationFilter::class.java)
-        private const val AUTHORIZATION_HEADER = "Authorization"
-        private const val BEARER_PREFIX = "Bearer "
+        private const val ACCESS_TOKEN_COOKIE = "access_token"
     }
 
     override fun doFilterInternal(
@@ -30,14 +29,12 @@ class JwtAuthenticationFilter(
         filterChain: FilterChain
     ) {
         try {
-            val authHeader = request.getHeader(AUTHORIZATION_HEADER)
+            val token = getAccessTokenFromCookie(request)
 
-            if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
+            if (token == null) {
                 filterChain.doFilter(request, response)
                 return
             }
-
-            val token = authHeader.substring(BEARER_PREFIX.length)
 
             val userId = jwtUtil.extractUserId(token)
             val user = userService.loadUserById(userId)
@@ -58,5 +55,9 @@ class JwtAuthenticationFilter(
         }
 
         filterChain.doFilter(request, response)
+    }
+
+    private fun getAccessTokenFromCookie(request: HttpServletRequest): String? {
+        return request.cookies?.find { it.name == ACCESS_TOKEN_COOKIE }?.value
     }
 }
