@@ -1,7 +1,23 @@
 openapi: 3.0.0
 info:
   title: LogBoard API
-  description: API приложения для работы с логами "LogBoard".
+  description: |
+    Платформа для сбора и анализа логов.
+
+    ## Сервисы
+    - **Core API** (http://localhost:8080) — управление пользователями, проектами, API ключами
+
+    ## Аутентификация
+
+    ### Для пользователей (JWT)
+    Пользователи получают токены через `/login` и передают их через cookie:
+    - Cookie: `access_token` (HTTP-only)
+
+    ### Для сервисов (API Key)
+    Сервисы используют API ключи, которые создаются в настройках проекта:
+    - Header: `X-API-Key: <key>`
+
+    API ключи привязаны к конкретному проекту и имеют срок действия.
   version: 1.0.0
 
 servers:
@@ -10,14 +26,19 @@ servers:
 
 tags:
   - name: Authentication
-    description: Эндпоинты для аутентификации.
+    description: Эндпоинты для аутентификации пользователей.
   - name: Projects
     description: Эндпоинты для управления проектами.
+  - name: API Keys
+    description: Управление API ключами для сервисов.
   - name: Logs
-    description: Эндпоинты для работы с логами.
+    description: Поиск и чтение логов.
+  - name: Log Ingestion
+    description: Загрузка логов в систему.
 
 security:
   - cookieAuth: []
+  - apiKeyAuth: []
 
 paths:
   /register:
@@ -78,7 +99,7 @@ paths:
             X-Set-Cookie:
               schema:
                 type: string
-              description: Refresh token устанавливается через X-Set-Cookie заголовок (для избежания конфликтов с SameSite).
+              description: Refresh token устанавливается через X-Set-Cookie заголовок.
               example: refresh_token=eyJ...; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800
         '400':
           description: Возвращает первую обнаруженную ошибку валидации данных.
@@ -324,6 +345,202 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /logs/ingest:
+    post:
+      summary: Загрузка логов
+      description: |
+        Пакетная загрузка логов в систему.
+      operationId: ingestLogs
+      tags:
+        - Log Ingestion
+      security:
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogIngestRequest'
+      responses:
+        '200':
+          description: Логи приняты на обработку (асинхронная запись)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogIngestResponse'
+        '400':
+          description: Ошибка валидации данных.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: API ключ невалиден.
+        '404':
+          description: Проект не найден.
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: Получить статус загрузки по ID
+      description: |
+        Возвращает текущий статус обработки пакета логов.
+      operationId: getIngestionStatus
+      tags:
+        - Log Ingestion
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: ingestionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID пакета логов
+      responses:
+        '200':
+          description: Статус загрузки
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestionStatusResponse'
+        '401':
+          description: Неверный API-ключ.
+        '404':
+          description: Пакет с таким ingestionId не найден.
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api-keys:
+    post:
+      summary: Создать API ключ
+      description: |
+        Создаёт новый API ключ для доступа к проекту.
+
+        **Важно:** Значение ключа показывается только один раз при создании. Сохраните его в безопасном месте.
+      operationId: createApiKey
+      tags:
+        - API Keys
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiKeyCreateRequest'
+      responses:
+        '201':
+          description: API ключ успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyCreateResponse'
+        '400':
+          description: Ошибка валидации данных.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Пользователь не авторизован.
+        '403':
+          description: Недостаточно прав для создания ключа в этом проекте.
+        '404':
+          description: Проект не найден.
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: Список API ключей проекта
+      description: Возвращает список всех API ключей проекта (без значения ключа).
+      operationId: listApiKeys
+      tags:
+        - API Keys
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID проекта
+      responses:
+        '200':
+          description: Список API ключей
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiKeyResponse'
+        '400':
+          description: Ошибка валидации projectId.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Пользователь не авторизован.
+        '403':
+          description: Недостаточно прав для просмотра ключей проекта.
+        '404':
+          description: Проект не найден.
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api-keys/{keyId}:
+    delete:
+      summary: Отозвать API ключ
+      description: Безвозвратно удаляет API ключ. Сервисы с этим ключом больше не смогут отправлять логи.
+      operationId: revokeApiKey
+      tags:
+        - API Keys
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: keyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID API ключа
+      responses:
+        '200':
+          description: API ключ успешно отозван
+        '401':
+          description: Пользователь не авторизован.
+        '403':
+          description: Недостаточно прав для отзыва ключа.
+        '404':
+          description: API ключ не найден.
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
 components:
   securitySchemes:
@@ -530,3 +747,149 @@ components:
         error:
           type: string
           example: Не удалось подключиться к базе данных
+
+    ApiKeyCreateRequest:
+      type: object
+      properties:
+        projectId:
+          type: string
+          format: uuid
+          description: ID проекта, для которого создаётся ключ.
+        name:
+          type: string
+          description: Название ключа (например, "production-app", "staging-worker").
+          minLength: 1
+          maxLength: 100
+        expiresAt:
+          type: string
+          format: date-time
+          description: Срок действия ключа (опционально). Если не указан — ключ бессрочный.
+      required:
+        - projectId
+        - name
+
+    ApiKeyCreateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Уникальный ID ключа.
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата создания ключа.
+      required:
+        - id
+        - createdAt
+
+    ApiKeyResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Уникальный ID ключа.
+        name:
+          type: string
+          description: Название ключа.
+        createdBy:
+          type: string
+          description: Username создателя ключа.
+        expiresAt:
+          type: string
+          format: date-time
+          description: Срок действия ключа - если нету, то бессрочный.
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата создания ключа.
+      required:
+        - id
+        - name
+        - createdBy
+        - createdAt
+
+    # Log Ingestion schemas
+    LogIngestRequest:
+      type: object
+      properties:
+        projectId:
+          type: string
+          format: uuid
+          description: ID проекта, к которому относятся логи.
+        logs:
+          type: array
+          description: Массив логов для загрузки (максимум 1000 за запрос).
+          items:
+            $ref: '#/components/schemas/LogIngestItem'
+          maxItems: 1000
+      required:
+        - projectId
+        - logs
+
+    LogIngestItem:
+      type: object
+      properties:
+        level:
+          $ref: '#/components/schemas/LogLevel'
+        message:
+          type: string
+          description: Текст лога.
+          minLength: 1
+          maxLength: 10000
+        timestamp:
+          type: string
+          format: date-time
+          description: Время события. Если не указано — используется текущее время сервера.
+      required:
+        - level
+        - message
+
+    LogIngestResponse:
+      type: object
+      properties:
+        ingestionId:
+          type: string
+          format: uuid
+          description: ID пакета логов для отслеживания.
+      required:
+        - ingestionId
+
+    IngestionStatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - pending
+            - processing
+            - completed
+            - failed
+          description: Текущий статус обработки.
+        accepted:
+          type: integer
+          description: Количество логов, принятых на обработку.
+        processed:
+          type: integer
+          description: Количество логов, уже записанных в хранилище.
+        failed:
+          type: integer
+          description: Количество логов с ошибками записи.
+        startedAt:
+          type: string
+          format: date-time
+          description: Время начала обработки.
+        completedAt:
+          type: string
+          format: date-time
+          description: Время завершения обработки (если завершено).
+        error:
+          type: string
+          description: Сообщение об ошибке (если статус failed).
+      required:
+        - ingestionId
+        - status
+        - accepted
+        - processed
+        - failed
