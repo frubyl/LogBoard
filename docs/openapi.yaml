@@ -348,6 +348,7 @@ paths:
   /logs/ingest:
     post:
       summary: Загрузка логов
+
       description: |
         Пакетная загрузка логов в систему.
       operationId: ingestLogs
@@ -385,6 +386,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+
+  /logs/ingest/{ingestionId}:
     get:
       summary: Получить статус загрузки по ID
       description: |
@@ -472,7 +475,6 @@ paths:
         - API Keys
       security:
         - cookieAuth: []
-        - bearerAuth: []
       parameters:
         - name: projectId
           in: query
@@ -554,6 +556,11 @@ components:
       in: cookie
       name: refresh_token
       description: Refresh token передаётся через HTTP-only cookie "refresh_token". Используется только в эндпоинте /refresh.
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API ключ проекта, создаётся через эндпоинт POST /api-keys.
   schemas:
     LogTimelineRequest:
       type: object
@@ -744,9 +751,15 @@ components:
     ErrorResponse:
       type: object
       properties:
-        error:
+        code:
           type: string
-          example: Не удалось подключиться к базе данных
+          example: NOT_FOUND
+        message:
+          type: string
+          example: Project not found with id: ...
+      required:
+        - code
+        - message
 
     ApiKeyCreateRequest:
       type: object

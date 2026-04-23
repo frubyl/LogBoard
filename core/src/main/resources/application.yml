@@ -25,6 +25,10 @@ spring:
     change-log: classpath:/db/changelog/db.changelog-master.yaml
     enabled: true
 
+# API Key configuration
+api-key:
+  hmac-secret: ${API_KEY_HMAC_SECRET:myDefaultHmacSecretForApiKeyHashingLogBoard}
+
 # JWT configuration
 jwt:
   secret: ${JWT_SECRET:mySecretKeyForLogBoardApplicationWhichIsVeryLongAndSecure}
