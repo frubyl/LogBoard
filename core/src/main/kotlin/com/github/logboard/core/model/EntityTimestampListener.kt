@@ -24,6 +24,11 @@ class EntityTimestampListener {
                 if (entity.createdAt == null) entity.createdAt = now
                 if (entity.updatedAt == null) entity.updatedAt = now
             }
+            is ApiKey -> {
+                val now = LocalDateTime.now()
+                if (entity.createdAt == null) entity.createdAt = now
+                if (entity.updatedAt == null) entity.updatedAt = now
+            }
         }
     }
 
@@ -33,6 +38,7 @@ class EntityTimestampListener {
             is User -> entity.updatedAt = LocalDateTime.now()
             is Project -> entity.updatedAt = LocalDateTime.now()
             is ProjectMember -> entity.updatedAt = LocalDateTime.now()
+            is ApiKey -> entity.updatedAt = LocalDateTime.now()
         }
     }
 }

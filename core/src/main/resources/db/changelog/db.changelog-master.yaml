@@ -5,3 +5,5 @@ databaseChangeLog:
       file: db/changelog/002-create-projects-table.yaml
   - include:
       file: db/changelog/003-create-project-members-table.yaml
+  - include:
+      file: db/changelog/004-create-api-keys-table.yaml

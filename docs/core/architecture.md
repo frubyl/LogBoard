@@ -28,6 +28,17 @@ Core Service следует традиционной слоистой архит
 ## API эндпоинты
 
 ### Аутентификация
-- `POST /register` - Регистрация пользователя
-- `POST /login` - Вход пользователя
-- `POST /refresh-token` - Обновление access токена
+- `POST /register` — Регистрация пользователя
+- `POST /login` — Вход пользователя, токены в HTTP-only cookies
+- `POST /refresh` — Обновление access токена
+- `POST /logout` — Выход, очистка cookies
+
+### Проекты
+- `POST /projects` — Создать проект (создатель становится OWNER)
+- `GET /projects` — Список проектов пользователя
+- `DELETE /projects/{id}` — Удалить проект (только OWNER)
+
+### API ключи
+- `POST /api-keys` — Создать API ключ (только OWNER/ADMIN)
+- `GET /api-keys?projectId=` — Список API ключей проекта (только OWNER/ADMIN)
+- `DELETE /api-keys/{keyId}` — Отозвать API ключ (только OWNER/ADMIN)

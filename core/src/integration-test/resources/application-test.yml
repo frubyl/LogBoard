@@ -2,6 +2,10 @@
 server:
   port: 0
 
+# API Key configuration
+api-key:
+  hmac-secret: test-hmac-secret-for-integration-tests
+
 # JWT configuration
 jwt:
   secret: test-secret-key-for-integration-tests-which-is-very-long-and-secure

@@ -22,7 +22,7 @@ jobs:
         uses: gradle/gradle-build-action@v2
 
       - name: Сборка Core сервиса
-        run: cd core && ./gradlew build -x test
+        run: chmod +x core/gradlew && cd core && ./gradlew build -x test
 
       - name: Сохранение артефактов сборки Core
         uses: actions/upload-artifact@v4
@@ -53,7 +53,7 @@ jobs:
           path: core/build/
 
       - name: Запуск Unit тестов Core
-        run: cd core && ./gradlew test
+        run: chmod +x core/gradlew && cd core && ./gradlew test
 
       - name: Генерация отчета покрытия кода
         run: cd core && ./gradlew jacocoTestReport
@@ -101,7 +101,7 @@ jobs:
           path: core/build/
 
       - name: Запуск Интеграционных тестов Core
-        run: cd core && ./gradlew integrationTest
+        run: chmod +x core/gradlew && cd core && ./gradlew integrationTest
 
   version:
     needs: [ test-integration-core ]
