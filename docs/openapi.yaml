@@ -262,6 +262,193 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /projects/{projectId}/members:
+    post:
+      summary: Добавить участника в проект
+      description: |
+        Добавляет пользователя в проект с указанной ролью.
+
+        **Статусная модель:**
+        - OWNER может добавлять ADMIN и READER
+        - ADMIN может добавлять только READER
+        - Нельзя назначить роль OWNER
+      operationId: addProjectMember
+      tags:
+        - Projects
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID проекта
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectMemberAddRequest'
+      responses:
+        '201':
+          description: Участник успешно добавлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMemberDto'
+        '400':
+          description: Ошибка валидации данных
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Пользователь не авторизован
+        '403':
+          description: Недостаточно прав или попытка назначить роль OWNER
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Проект или пользователь не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Пользователь уже является участником проекта
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects/{projectId}/members/{userId}:
+    delete:
+      summary: Удалить участника из проекта
+      description: |
+        Удаляет участника из проекта.
+
+        **Статусная модель:**
+        - OWNER может удалять ADMIN и READER
+        - ADMIN может удалять только READER
+        - OWNER не может быть удалён
+      operationId: removeProjectMember
+      tags:
+        - Projects
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID проекта
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: ID пользователя
+      responses:
+        '200':
+          description: Участник успешно удалён
+        '401':
+          description: Пользователь не авторизован
+        '403':
+          description: Недостаточно прав или попытка удалить OWNER
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Проект или участник не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      summary: Изменить роль участника
+      description: |
+        Изменяет роль участника проекта.
+
+        **Статусная модель:**
+        - Только OWNER может изменять роли
+        - Нельзя изменить собственную роль
+        - Нельзя изменить роль OWNER
+        - Нельзя назначить роль OWNER
+      operationId: updateProjectMemberRole
+      tags:
+        - Projects
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID проекта
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: ID пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectMemberRoleUpdateRequest'
+      responses:
+        '200':
+          description: Роль успешно изменена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectMemberDto'
+        '400':
+          description: Ошибка валидации данных
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Пользователь не авторизован
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Проект или участник не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /logs/search:
     post:
       summary: Поиск логов проекта
@@ -760,6 +947,52 @@ components:
       required:
         - code
         - message
+
+    ProjectMemberAddRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Username добавляемого пользователя
+        role:
+          $ref: '#/components/schemas/ProjectRole'
+      required:
+        - username
+        - role
+
+    ProjectMemberRoleUpdateRequest:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/ProjectRole'
+      required:
+        - role
+
+    ProjectMemberDto:
+      type: object
+      properties:
+        userId:
+          type: integer
+          format: int64
+          description: ID пользователя
+        username:
+          type: string
+          description: Username пользователя
+        role:
+          $ref: '#/components/schemas/ProjectRole'
+      required:
+        - userId
+        - username
+        - role
+
+    ProjectRole:
+      type: string
+      enum: [OWNER, ADMIN, READER]
+      description: |
+        Роль участника проекта:
+        - OWNER — владелец, полный доступ
+        - ADMIN — администратор, управляет участниками с ролью READER и API-ключами
+        - READER — читатель, только просмотр логов
 
     ApiKeyCreateRequest:
       type: object
