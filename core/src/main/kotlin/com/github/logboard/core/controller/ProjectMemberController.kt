@@ -23,6 +23,16 @@ class ProjectMemberController(
         private val logger = LoggerFactory.getLogger(ProjectMemberController::class.java)
     }
 
+    @GetMapping
+    fun getMembers(
+        @PathVariable projectId: UUID,
+        @AuthenticationPrincipal actor: User
+    ): ResponseEntity<List<ProjectMemberDto>> {
+        logger.info("Fetching members of project $projectId by user: ${actor.username}")
+        val members = projectMemberService.getMembers(projectId, actor.id!!)
+        return ResponseEntity.ok(members)
+    }
+
     @PostMapping
     fun addMember(
         @PathVariable projectId: UUID,

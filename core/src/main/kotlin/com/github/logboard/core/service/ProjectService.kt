@@ -65,13 +65,19 @@ class ProjectService(
                 ?.username
                 ?: "Unknown"
 
+            val role = project.members
+                .firstOrNull { it.user?.id == userId }
+                ?.role
+                ?: ProjectRole.READER
+
             ProjectResponseDto(
                 id = project.id!!,
                 name = project.name,
                 description = project.description,
                 createdAt = project.createdAt!!,
                 updatedAt = project.updatedAt!!,
-                owner = owner
+                owner = owner,
+                role = role
             )
         }
     }

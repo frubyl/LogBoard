@@ -67,6 +67,101 @@ class ProjectMemberIntegrationTest : AbstractIntegrationTest() {
         return UUID.fromString(objectMapper.readTree(result.response.contentAsString).get("id").asText())
     }
 
+    // --- getMembers ---
+
+    @Test
+    fun `should return members list when actor is OWNER`() {
+        val ownerCookies = registerAndLogin("pm_gm_owner1")
+        register("pm_gm_member1")
+        val projectId = createProject(ownerCookies)
+
+        mockMvc.perform(
+            MockMvcRequestBuilders.post("/projects/$projectId/members")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(ProjectMemberAddRequest(username = "pm_gm_member1", role = ProjectRole.READER)))
+                .apply { ownerCookies.forEach { cookie(it) } }
+        ).andExpect(status().isCreated())
+
+        mockMvc.perform(
+            MockMvcRequestBuilders.get("/projects/$projectId/members")
+                .apply { ownerCookies.forEach { cookie(it) } }
+        ).andExpect(status().isOk())
+            .andExpect(jsonPath("$").isArray)
+            .andExpect(jsonPath("$.length()").value(2))
+            .andExpect(jsonPath("$[*].userId").exists())
+            .andExpect(jsonPath("$[*].username").exists())
+            .andExpect(jsonPath("$[*].role").exists())
+    }
+
+    @Test
+    fun `should return members list when actor is ADMIN`() {
+        val ownerCookies = registerAndLogin("pm_gm_owner2")
+        val adminCookies = registerAndLogin("pm_gm_admin2")
+        val projectId = createProject(ownerCookies)
+
+        mockMvc.perform(
+            MockMvcRequestBuilders.post("/projects/$projectId/members")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(ProjectMemberAddRequest(username = "pm_gm_admin2", role = ProjectRole.ADMIN)))
+                .apply { ownerCookies.forEach { cookie(it) } }
+        ).andExpect(status().isCreated())
+
+        mockMvc.perform(
+            MockMvcRequestBuilders.get("/projects/$projectId/members")
+                .apply { adminCookies.forEach { cookie(it) } }
+        ).andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(2))
+    }
+
+    @Test
+    fun `should return 403 when READER tries to get members`() {
+        val ownerCookies = registerAndLogin("pm_gm_owner3")
+        val readerCookies = registerAndLogin("pm_gm_reader3")
+        val projectId = createProject(ownerCookies)
+
+        mockMvc.perform(
+            MockMvcRequestBuilders.post("/projects/$projectId/members")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(ProjectMemberAddRequest(username = "pm_gm_reader3", role = ProjectRole.READER)))
+                .apply { ownerCookies.forEach { cookie(it) } }
+        ).andExpect(status().isCreated())
+
+        mockMvc.perform(
+            MockMvcRequestBuilders.get("/projects/$projectId/members")
+                .apply { readerCookies.forEach { cookie(it) } }
+        ).andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.message").exists())
+    }
+
+    @Test
+    fun `should return 403 when non-member tries to get members`() {
+        val ownerCookies = registerAndLogin("pm_gm_owner4")
+        val outsiderCookies = registerAndLogin("pm_gm_outsider4")
+        val projectId = createProject(ownerCookies)
+
+        mockMvc.perform(
+            MockMvcRequestBuilders.get("/projects/$projectId/members")
+                .apply { outsiderCookies.forEach { cookie(it) } }
+        ).andExpect(status().isForbidden())
+    }
+
+    @Test
+    fun `should return 401 when getting members without authentication`() {
+        mockMvc.perform(
+            MockMvcRequestBuilders.get("/projects/${UUID.randomUUID()}/members")
+        ).andExpect(status().isUnauthorized())
+    }
+
+    @Test
+    fun `should return 404 when getting members of non-existent project`() {
+        val ownerCookies = registerAndLogin("pm_gm_owner5")
+
+        mockMvc.perform(
+            MockMvcRequestBuilders.get("/projects/${UUID.randomUUID()}/members")
+                .apply { ownerCookies.forEach { cookie(it) } }
+        ).andExpect(status().isNotFound())
+    }
+
     // --- addMember ---
 
     @Test

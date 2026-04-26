@@ -27,6 +27,30 @@ class ProjectMemberService(
         private val logger = LoggerFactory.getLogger(ProjectMemberService::class.java)
     }
 
+    @Transactional(readOnly = true)
+    fun getMembers(projectId: UUID, actorId: Long): List<ProjectMemberDto> {
+        logger.info("Fetching members of project $projectId by actor id: $actorId")
+
+        if (!projectRepository.existsById(projectId)) {
+            throw NotFoundException("Project not found with id: $projectId")
+        }
+
+        val actor = projectMemberRepository.findByProjectIdAndUserId(projectId, actorId)
+            ?: throw ForbiddenException("User is not a member of this project")
+
+        if (actor.role == ProjectRole.READER) {
+            throw ForbiddenException("Only OWNER or ADMIN can view members")
+        }
+
+        return projectMemberRepository.findByProjectId(projectId).map { member ->
+            ProjectMemberDto(
+                userId = member.user!!.id!!,
+                username = member.user!!.username,
+                role = member.role
+            )
+        }
+    }
+
     @Transactional
     fun addMember(projectId: UUID, actorId: Long, request: ProjectMemberAddRequest): ProjectMemberDto {
         logger.info("Adding member '${request.username}' with role ${request.role} to project $projectId by actor id: $actorId")
