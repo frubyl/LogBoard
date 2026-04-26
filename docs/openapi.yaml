@@ -943,7 +943,7 @@ components:
           example: NOT_FOUND
         message:
           type: string
-          example: Project not found with id: ...
+          example: Project not found with id
       required:
         - code
         - message

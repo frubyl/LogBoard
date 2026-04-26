@@ -67,6 +67,89 @@ class ProjectMemberServiceTest {
         )
     }
 
+    // --- getMembers ---
+
+    @Test
+    fun `getMembers should return list when actor is OWNER`() {
+        val projectId = project.id!!
+        val members = listOf(
+            ProjectMember(id = ProjectMemberId(projectId, actor.id), project = project,
+                user = actor, role = ProjectRole.OWNER,
+                createdAt = LocalDateTime.now(), updatedAt = LocalDateTime.now()),
+            ProjectMember(id = ProjectMemberId(projectId, targetUser.id), project = project,
+                user = targetUser, role = ProjectRole.READER,
+                createdAt = LocalDateTime.now(), updatedAt = LocalDateTime.now())
+        )
+
+        `when`(projectRepository.existsById(projectId)).thenReturn(true)
+        `when`(projectMemberRepository.findByProjectIdAndUserId(projectId, actor.id!!)).thenReturn(ownerMember)
+        `when`(projectMemberRepository.findByProjectId(projectId)).thenReturn(members)
+
+        val result = projectMemberService.getMembers(projectId, actor.id!!)
+
+        result.size shouldBe 2
+        result[0].userId shouldBe actor.id
+        result[0].role shouldBe ProjectRole.OWNER
+        result[1].userId shouldBe targetUser.id
+        result[1].role shouldBe ProjectRole.READER
+    }
+
+    @Test
+    fun `getMembers should return list when actor is ADMIN`() {
+        val projectId = project.id!!
+        val members = listOf(
+            ProjectMember(id = ProjectMemberId(projectId, actor.id), project = project,
+                user = actor, role = ProjectRole.ADMIN,
+                createdAt = LocalDateTime.now(), updatedAt = LocalDateTime.now())
+        )
+
+        `when`(projectRepository.existsById(projectId)).thenReturn(true)
+        `when`(projectMemberRepository.findByProjectIdAndUserId(projectId, actor.id!!)).thenReturn(adminMember)
+        `when`(projectMemberRepository.findByProjectId(projectId)).thenReturn(members)
+
+        val result = projectMemberService.getMembers(projectId, actor.id!!)
+
+        result.size shouldBe 1
+    }
+
+    @Test
+    fun `getMembers should throw NotFoundException when project not found`() {
+        val projectId = UUID.randomUUID()
+
+        `when`(projectRepository.existsById(projectId)).thenReturn(false)
+
+        val ex = shouldThrow<NotFoundException> {
+            projectMemberService.getMembers(projectId, actor.id!!)
+        }
+        ex.message shouldBe "Project not found with id: $projectId"
+    }
+
+    @Test
+    fun `getMembers should throw ForbiddenException when actor is not a project member`() {
+        val projectId = project.id!!
+
+        `when`(projectRepository.existsById(projectId)).thenReturn(true)
+        `when`(projectMemberRepository.findByProjectIdAndUserId(projectId, actor.id!!)).thenReturn(null)
+
+        val ex = shouldThrow<ForbiddenException> {
+            projectMemberService.getMembers(projectId, actor.id!!)
+        }
+        ex.message shouldBe "User is not a member of this project"
+    }
+
+    @Test
+    fun `getMembers should throw ForbiddenException when actor is READER`() {
+        val projectId = project.id!!
+
+        `when`(projectRepository.existsById(projectId)).thenReturn(true)
+        `when`(projectMemberRepository.findByProjectIdAndUserId(projectId, actor.id!!)).thenReturn(readerMember)
+
+        val ex = shouldThrow<ForbiddenException> {
+            projectMemberService.getMembers(projectId, actor.id!!)
+        }
+        ex.message shouldBe "Only OWNER or ADMIN can view members"
+    }
+
     // --- addMember ---
 
     @Test

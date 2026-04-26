@@ -27,6 +27,23 @@ class ProjectMemberControllerTest {
     private val projectId: UUID = UUID.randomUUID()
 
     @Test
+    fun `getMembers should return 200 with list of members`() {
+        val members = listOf(
+            ProjectMemberDto(userId = 1L, username = "actor", role = ProjectRole.OWNER),
+            ProjectMemberDto(userId = 2L, username = "member", role = ProjectRole.READER)
+        )
+
+        `when`(projectMemberService.getMembers(projectId, actor.id!!)).thenReturn(members)
+
+        val result = projectMemberController.getMembers(projectId, actor)
+
+        result.statusCode shouldBe HttpStatus.OK
+        result.body shouldBe members
+        result.body?.size shouldBe 2
+        verify(projectMemberService).getMembers(projectId, actor.id!!)
+    }
+
+    @Test
     fun `addMember should return 201 with member dto`() {
         val request = ProjectMemberAddRequest(username = "newuser", role = ProjectRole.ADMIN)
         val dto = ProjectMemberDto(userId = 2L, username = "newuser", role = ProjectRole.ADMIN)

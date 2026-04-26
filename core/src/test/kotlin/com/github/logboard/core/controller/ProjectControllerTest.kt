@@ -3,6 +3,7 @@ package com.github.logboard.core.controller
 import com.github.logboard.core.dto.ProjectCreateRequest
 import com.github.logboard.core.dto.ProjectCreateResponse
 import com.github.logboard.core.dto.ProjectResponseDto
+import com.github.logboard.core.model.ProjectRole
 import com.github.logboard.core.model.User
 import com.github.logboard.core.service.ProjectService
 import io.kotest.matchers.shouldBe
@@ -58,7 +59,8 @@ class ProjectControllerTest {
                 description = "Test Description",
                 createdAt = LocalDateTime.now(),
                 updatedAt = LocalDateTime.now(),
-                owner = "testuser"
+                owner = "testuser",
+                role = ProjectRole.OWNER
             )
         )
 
