@@ -6,6 +6,7 @@ info:
 
     ## Сервисы
     - **Core API** (http://localhost:8080) — управление пользователями, проектами, API ключами
+    - **Log API** (http://localhost:8081) — загрузка логов, поиск, таймлайн
 
     ## Аутентификация
 
@@ -22,7 +23,9 @@ info:
 
 servers:
   - url: http://localhost:8080
-    description: Local development server
+    description: Core Service (управление пользователями, проектами, API ключами)
+  - url: http://localhost:8081
+    description: Log Service (загрузка и поиск логов)
 
 tags:
   - name: Authentication
@@ -813,7 +816,7 @@ components:
           description: Фильтр по уровням лога (можно указать несколько).
         message:
           type: string
-          description: Полнотекстовый поиск по сообщению (регистронезависимо). Работает только если ClickHouse хранит поле message.
+          description: Полнотекстовый поиск по сообщению (регистронезависимо).
         from:
           type: string
           format: date-time
