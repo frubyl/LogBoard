@@ -263,6 +263,56 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   /projects/{projectId}/members:
+    get:
+      summary: Получить список участников проекта
+      description: |
+        Возвращает список всех участников проекта с их ролями.
+
+        **Права доступа:**
+        - OWNER — доступ есть
+        - ADMIN — доступ есть
+        - READER — нет доступа (403)
+      operationId: getProjectMembers
+      tags:
+        - Projects
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID проекта
+      responses:
+        '200':
+          description: Список участников проекта
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectMemberDto'
+        '401':
+          description: Пользователь не авторизован
+        '403':
+          description: Недостаточно прав (READER не может просматривать список участников)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Проект не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
     post:
       summary: Добавить участника в проект
       description: |
@@ -883,23 +933,27 @@ components:
         description:
           type: string
           description: Описание проекта
-        createdAt:
+        created_at:
           type: string
           format: date-time
           description: Дата и время создания проекта
-        updatedAt:
+        updated_at:
           type: string
           format: date-time
           description: Дата и время последнего обновления проекта
         owner:
           type: string
           description: Username владельца проекта
+        role:
+          $ref: '#/components/schemas/ProjectRole'
+          description: Роль текущего пользователя в этом проекте
       required:
         - id
         - name
-        - createdAt
-        - updatedAt
+        - created_at
+        - updated_at
         - owner
+        - role
     ProjectCreateRequest:
       type: object
       properties:
