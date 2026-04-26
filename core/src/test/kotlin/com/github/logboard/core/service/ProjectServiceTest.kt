@@ -22,6 +22,7 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.Mockito.*
 import org.mockito.junit.jupiter.MockitoExtension
+import org.springframework.kafka.core.KafkaTemplate
 import java.time.LocalDateTime
 import java.util.*
 
@@ -36,6 +37,9 @@ class ProjectServiceTest {
 
     @Mock
     private lateinit var userService: UserService
+
+    @Mock
+    private lateinit var kafkaTemplate: KafkaTemplate<String, Any>
 
     @InjectMocks
     private lateinit var projectService: ProjectService
