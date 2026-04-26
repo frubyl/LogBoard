@@ -4,6 +4,8 @@ import com.github.logboard.core.config.ApiKeyProperties
 import com.github.logboard.core.dto.ApiKeyCreateRequest
 import com.github.logboard.core.dto.ApiKeyCreateResponse
 import com.github.logboard.core.dto.ApiKeyListItemDto
+import com.github.logboard.core.event.ApiKeyEvent
+import com.github.logboard.core.event.KafkaTopics
 import com.github.logboard.core.exception.common.ForbiddenException
 import com.github.logboard.core.exception.common.NotFoundException
 import com.github.logboard.core.model.ApiKey
@@ -12,6 +14,7 @@ import com.github.logboard.core.repository.ApiKeyRepository
 import com.github.logboard.core.repository.ProjectMemberRepository
 import com.github.logboard.core.repository.ProjectRepository
 import org.slf4j.LoggerFactory
+import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.*
@@ -24,7 +27,8 @@ class ApiKeyService(
     private val projectRepository: ProjectRepository,
     private val projectMemberRepository: ProjectMemberRepository,
     private val userService: UserService,
-    private val apiKeyProperties: ApiKeyProperties
+    private val apiKeyProperties: ApiKeyProperties,
+    private val kafkaTemplate: KafkaTemplate<String, Any>
 ) {
 
     companion object {
@@ -61,6 +65,18 @@ class ApiKeyService(
 
         val saved = apiKeyRepository.save(apiKey)
         logger.info("API key created with id: ${saved.id} for project $projectId")
+
+        kafkaTemplate.send(
+            KafkaTopics.API_KEYS,
+            saved.id.toString(),
+            ApiKeyEvent(
+                eventType = ApiKeyEvent.EventType.CREATED,
+                keyId = saved.id!!,
+                projectId = projectId,
+                keyHash = keyHash,
+                expiresAt = request.expiresAt
+            )
+        )
 
         return ApiKeyCreateResponse(
             id = saved.id!!,
@@ -113,6 +129,12 @@ class ApiKeyService(
 
         apiKeyRepository.delete(apiKey)
         logger.info("API key $keyId revoked successfully")
+
+        kafkaTemplate.send(
+            KafkaTopics.API_KEYS,
+            keyId.toString(),
+            ApiKeyEvent(eventType = ApiKeyEvent.EventType.REVOKED, keyId = keyId)
+        )
     }
 
     private fun hmacSha256(value: String): String {

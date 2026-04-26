@@ -7,6 +7,8 @@ import org.springframework.test.context.DynamicPropertySource
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import org.testcontainers.kafka.KafkaContainer
+import org.testcontainers.utility.DockerImageName
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
@@ -22,6 +24,10 @@ abstract class AbstractIntegrationTest {
             .withReuse(true)
             .withStartupTimeoutSeconds(60)
 
+        @Container
+        val kafka: KafkaContainer = KafkaContainer(DockerImageName.parse("apache/kafka:3.7.0"))
+            .withReuse(true)
+
         @JvmStatic
         @DynamicPropertySource
         fun configureProperties(registry: DynamicPropertyRegistry) {
@@ -30,6 +36,7 @@ abstract class AbstractIntegrationTest {
             registry.add("spring.datasource.password", postgres::getPassword)
             registry.add("spring.datasource.hikari.maximum-pool-size") { "10" }
             registry.add("spring.datasource.hikari.connection-timeout") { "30000" }
+            registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers)
         }
     }
 }

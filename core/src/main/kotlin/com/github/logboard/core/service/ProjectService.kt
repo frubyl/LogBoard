@@ -3,6 +3,8 @@ package com.github.logboard.core.service
 import com.github.logboard.core.dto.ProjectCreateRequest
 import com.github.logboard.core.dto.ProjectCreateResponse
 import com.github.logboard.core.dto.ProjectResponseDto
+import com.github.logboard.core.event.KafkaTopics
+import com.github.logboard.core.event.ProjectMemberEvent
 import com.github.logboard.core.exception.common.ForbiddenException
 import com.github.logboard.core.exception.common.NotFoundException
 import com.github.logboard.core.model.Project
@@ -12,6 +14,7 @@ import com.github.logboard.core.model.ProjectRole
 import com.github.logboard.core.repository.ProjectMemberRepository
 import com.github.logboard.core.repository.ProjectRepository
 import org.slf4j.LoggerFactory
+import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.*
@@ -20,7 +23,8 @@ import java.util.*
 class ProjectService(
     private val projectRepository: ProjectRepository,
     private val projectMemberRepository: ProjectMemberRepository,
-    private val userService: UserService
+    private val userService: UserService,
+    private val kafkaTemplate: KafkaTemplate<String, Any>
 ) {
 
     companion object {
@@ -50,6 +54,18 @@ class ProjectService(
         projectMemberRepository.save(projectMember)
 
         logger.info("Project created successfully with id: ${savedProject.id}")
+
+        kafkaTemplate.send(
+            KafkaTopics.PROJECT_MEMBERS,
+            "${savedProject.id}:$userId",
+            ProjectMemberEvent(
+                eventType = ProjectMemberEvent.EventType.ADDED,
+                projectId = savedProject.id!!,
+                userId = userId,
+                role = ProjectRole.OWNER.name
+            )
+        )
+
         return ProjectCreateResponse(savedProject.id!!)
     }
 
