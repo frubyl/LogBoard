@@ -60,7 +60,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
     steps:
       - uses: actions/checkout@v3
 
@@ -85,15 +84,36 @@ jobs:
       - name: Проверка порога покрытия Core (65%)
         run: cd core && ./gradlew jacocoTestCoverageVerification
 
-      - name: Отображение покрытия в PR
-        uses: madrapps/jacoco-report@v1.6.0
-        if: github.event_name == 'pull_request'
-        with:
-          paths: ${{ github.workspace }}/core/build/reports/jacoco/test/jacocoTestReport.xml
-          token: ${{ secrets.GITHUB_TOKEN }}
-          title: Core Service — покрытие кода
-          min-coverage-overall: 65
-          min-coverage-changed-files: 60
+      - name: Отображение покрытия в Job Summary
+        if: always()
+        run: |
+          python3 - <<'EOF'
+          import xml.etree.ElementTree as ET, os
+
+          tree = ET.parse('core/build/reports/jacoco/test/jacocoTestReport.xml')
+          root = tree.getroot()
+          counters = {c.get('type'): c for c in root.findall('counter')}
+
+          def pct(c, m):
+              total = c + m
+              return f"{c / total * 100:.1f}% ({c}/{total})" if total else "—"
+
+          rows = [
+              ("Инструкции", counters.get('INSTRUCTION')),
+              ("Ветки",      counters.get('BRANCH')),
+              ("Строки",     counters.get('LINE')),
+              ("Методы",     counters.get('METHOD')),
+              ("Классы",     counters.get('CLASS')),
+          ]
+
+          lines = ["## Core Service — покрытие кода\n", "| Метрика | Покрытие |\n", "|---|---|\n"]
+          for name, c in rows:
+              if c is not None:
+                  lines.append(f"| {name} | {pct(int(c.get('covered',0)), int(c.get('missed',0)))} |\n")
+
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.writelines(lines)
+          EOF
 
       - name: Сохранение HTML-отчёта покрытия Core
         uses: actions/upload-artifact@v4
@@ -108,7 +128,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
     steps:
       - uses: actions/checkout@v3
 
@@ -133,15 +152,36 @@ jobs:
       - name: Проверка порога покрытия Log сервиса (65%)
         run: cd log-service && ./gradlew jacocoTestCoverageVerification
 
-      - name: Отображение покрытия в PR
-        uses: madrapps/jacoco-report@v1.6.0
-        if: github.event_name == 'pull_request'
-        with:
-          paths: ${{ github.workspace }}/log-service/build/reports/jacoco/test/jacocoTestReport.xml
-          token: ${{ secrets.GITHUB_TOKEN }}
-          title: Log Service — покрытие кода
-          min-coverage-overall: 65
-          min-coverage-changed-files: 60
+      - name: Отображение покрытия в Job Summary
+        if: always()
+        run: |
+          python3 - <<'EOF'
+          import xml.etree.ElementTree as ET, os
+
+          tree = ET.parse('log-service/build/reports/jacoco/test/jacocoTestReport.xml')
+          root = tree.getroot()
+          counters = {c.get('type'): c for c in root.findall('counter')}
+
+          def pct(c, m):
+              total = c + m
+              return f"{c / total * 100:.1f}% ({c}/{total})" if total else "—"
+
+          rows = [
+              ("Инструкции", counters.get('INSTRUCTION')),
+              ("Ветки",      counters.get('BRANCH')),
+              ("Строки",     counters.get('LINE')),
+              ("Методы",     counters.get('METHOD')),
+              ("Классы",     counters.get('CLASS')),
+          ]
+
+          lines = ["## Log Service — покрытие кода\n", "| Метрика | Покрытие |\n", "|---|---|\n"]
+          for name, c in rows:
+              if c is not None:
+                  lines.append(f"| {name} | {pct(int(c.get('covered',0)), int(c.get('missed',0)))} |\n")
+
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.writelines(lines)
+          EOF
 
       - name: Сохранение HTML-отчёта покрытия Log сервиса
         uses: actions/upload-artifact@v4
