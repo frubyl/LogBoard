@@ -12,6 +12,7 @@ import org.mockito.kotlin.reset
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.cache.annotation.EnableCaching
 import org.springframework.cache.caffeine.CaffeineCacheManager
 import org.springframework.context.annotation.Bean
@@ -24,6 +25,12 @@ class LocalApiKeyCacheServiceTest : DescribeSpec() {
 
     override fun extensions() = listOf(SpringExtension)
 
+    @Autowired
+    private lateinit var service: LocalApiKeyCacheService
+
+    @Autowired
+    private lateinit var cacheManager: CaffeineCacheManager
+
     init {
         val projectId: UUID = UUID.randomUUID()
         val keyId: UUID = UUID.randomUUID()
@@ -31,7 +38,7 @@ class LocalApiKeyCacheServiceTest : DescribeSpec() {
         val apiKey = LocalApiKey(id = keyId, projectId = projectId, keyHash = keyHash)
 
         beforeEach {
-            TestConfig.cacheManager.getCache("apiKeys")!!.clear()
+            cacheManager.getCache("apiKeys")!!.clear()
             reset(TestConfig.repository)
         }
 
@@ -39,7 +46,7 @@ class LocalApiKeyCacheServiceTest : DescribeSpec() {
             it("calls repository on first request") {
                 whenever(TestConfig.repository.findByKeyHash(keyHash)).thenReturn(apiKey)
 
-                val result = TestConfig.service.findByKeyHash(keyHash)
+                val result = service.findByKeyHash(keyHash)
 
                 result shouldNotBe null
                 result!!.id shouldBe keyId
@@ -48,9 +55,9 @@ class LocalApiKeyCacheServiceTest : DescribeSpec() {
 
             it("returns cached value on second request without hitting repository") {
                 whenever(TestConfig.repository.findByKeyHash(keyHash)).thenReturn(apiKey)
-                TestConfig.service.findByKeyHash(keyHash)
+                service.findByKeyHash(keyHash)
 
-                val result = TestConfig.service.findByKeyHash(keyHash)
+                val result = service.findByKeyHash(keyHash)
 
                 result!!.id shouldBe keyId
                 verify(TestConfig.repository, times(1)).findByKeyHash(keyHash)
@@ -59,9 +66,9 @@ class LocalApiKeyCacheServiceTest : DescribeSpec() {
 
         describe("put") {
             it("populates cache so next findByKeyHash skips repository") {
-                TestConfig.service.put(apiKey)
+                service.put(apiKey)
 
-                val result = TestConfig.service.findByKeyHash(keyHash)
+                val result = service.findByKeyHash(keyHash)
 
                 result!!.id shouldBe keyId
                 verify(TestConfig.repository, times(0)).findByKeyHash(keyHash)
@@ -71,10 +78,10 @@ class LocalApiKeyCacheServiceTest : DescribeSpec() {
         describe("evict") {
             it("removes entry so next findByKeyHash hits repository again") {
                 whenever(TestConfig.repository.findByKeyHash(keyHash)).thenReturn(apiKey)
-                TestConfig.service.findByKeyHash(keyHash)
+                service.findByKeyHash(keyHash)
 
-                TestConfig.service.evict(keyHash)
-                TestConfig.service.findByKeyHash(keyHash)
+                service.evict(keyHash)
+                service.findByKeyHash(keyHash)
 
                 verify(TestConfig.repository, times(2)).findByKeyHash(keyHash)
             }
@@ -86,8 +93,6 @@ class LocalApiKeyCacheServiceTest : DescribeSpec() {
     class TestConfig {
         companion object {
             val repository: LocalApiKeyRepository = mock()
-            lateinit var service: LocalApiKeyCacheService
-            lateinit var cacheManager: CaffeineCacheManager
         }
 
         @Bean
@@ -97,14 +102,11 @@ class LocalApiKeyCacheServiceTest : DescribeSpec() {
         fun caffeineCacheManager(): CaffeineCacheManager {
             val manager = CaffeineCacheManager("apiKeys")
             manager.setCaffeine(Caffeine.newBuilder().maximumSize(1000))
-            cacheManager = manager
             return manager
         }
 
         @Bean
-        fun localApiKeyCacheService(repo: LocalApiKeyRepository): LocalApiKeyCacheService {
-            service = LocalApiKeyCacheService(repo)
-            return service
-        }
+        fun localApiKeyCacheService(repo: LocalApiKeyRepository): LocalApiKeyCacheService =
+            LocalApiKeyCacheService(repo)
     }
 }
