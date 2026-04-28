@@ -18,3 +18,16 @@ services:
       JWT_SECRET: devSecretKeyForLogBoardApplicationWhichIsVeryLongAndSecure
       JWT_ACCESS_TOKEN_EXPIRATION: "3600000"
       JWT_REFRESH_TOKEN_EXPIRATION: "86400000"
+      API_KEY_HMAC_SECRET: devHmacSecretForApiKeyHashingLogBoard
+
+  log-service:
+    build:
+      context: ./log-service
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/logboard
+      DATABASE_USERNAME: logboard
+      DATABASE_PASSWORD: logboard
+      ELASTICSEARCH_URIS: http://elasticsearch:9200
+      JWT_SECRET: devSecretKeyForLogBoardApplicationWhichIsVeryLongAndSecure
+      API_KEY_HMAC_SECRET: devHmacSecretForApiKeyHashingLogBoard

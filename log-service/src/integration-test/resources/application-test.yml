@@ -1,0 +1,17 @@
+server:
+  port: 0
+
+api-key:
+  hmac-secret: test-hmac-secret-for-integration-tests
+
+jwt:
+  secret: test-secret-key-for-integration-tests-which-is-very-long-and-secure
+
+clickhouse:
+  username: ""
+  password: ""
+
+logging:
+  level:
+    com.github.logboard: INFO
+    org.springframework.security: WARN

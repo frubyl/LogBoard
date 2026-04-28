@@ -1,0 +1,61 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-local-api-keys
+      author: logboard
+      changes:
+        - createTable:
+            tableName: local_api_keys
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: project_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: key_hash
+                  type: VARCHAR(64)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: expires_at
+                  type: TIMESTAMP
+        - createIndex:
+            tableName: local_api_keys
+            indexName: idx_local_api_keys_key_hash
+            columns:
+              - column:
+                  name: key_hash
+
+  - changeSet:
+      id: 002-create-local-project-members
+      author: logboard
+      changes:
+        - createTable:
+            tableName: local_project_members
+            columns:
+              - column:
+                  name: project_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: role
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+        - addPrimaryKey:
+            tableName: local_project_members
+            columnNames: project_id, user_id
+            constraintName: pk_local_project_members

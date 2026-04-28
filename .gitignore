@@ -6,3 +6,9 @@
 
 ### Environment ###
 .env
+
+### Gradle ###
+.gradle/
+build/
+*/build/
+*/.gradle/
