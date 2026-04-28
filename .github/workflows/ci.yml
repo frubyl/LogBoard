@@ -31,9 +31,35 @@ jobs:
           path: core/build/
           retention-days: 1
 
+  build-log-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Установка JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Настройка Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Сборка Log сервиса
+        run: chmod +x log-service/gradlew && cd log-service && ./gradlew build -x test
+
+      - name: Сохранение артефактов сборки Log сервиса
+        uses: actions/upload-artifact@v4
+        with:
+          name: log-service-build
+          path: log-service/build/
+          retention-days: 1
+
   test-unit-core:
     needs: build-core
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v3
 
@@ -52,18 +78,132 @@ jobs:
           name: core-build
           path: core/build/
 
-      - name: Запуск Unit тестов Core
-        run: chmod +x core/gradlew && cd core && ./gradlew test
+      - name: Запуск Unit тестов Core (+ JaCoCo)
+        run: chmod +x core/gradlew && cd core && ./gradlew test jacocoTestReport
 
-      - name: Генерация отчета покрытия кода
-        run: cd core && ./gradlew jacocoTestReport
+      - name: Проверка порога покрытия Core (65%)
+        run: cd core && ./gradlew jacocoTestCoverageVerification
 
-      - name: Загрузка отчета о покрытии кода в Codecov
-        uses: codecov/codecov-action@v3
+      - name: Отображение покрытия в Job Summary
+        if: always()
+        run: |
+          python3 - <<'EOF'
+          import xml.etree.ElementTree as ET, os, sys
+
+          report = 'core/build/reports/jacoco/test/jacocoTestReport.xml'
+          if not os.path.exists(report):
+              msg = "## Core Service — покрытие кода\n\n> Отчёт не найден: JaCoCo не сгенерировал XML.\n"
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+                  f.write(msg)
+              sys.exit(0)
+
+          tree = ET.parse(report)
+          root = tree.getroot()
+          counters = {c.get('type'): c for c in root.findall('counter')}
+
+          def pct(c, m):
+              total = c + m
+              return f"{c / total * 100:.1f}% ({c}/{total})" if total else "—"
+
+          rows = [
+              ("Инструкции", counters.get('INSTRUCTION')),
+              ("Ветки",      counters.get('BRANCH')),
+              ("Строки",     counters.get('LINE')),
+              ("Методы",     counters.get('METHOD')),
+              ("Классы",     counters.get('CLASS')),
+          ]
+
+          lines = ["## Core Service — покрытие кода\n", "| Метрика | Покрытие |\n", "|---|---|\n"]
+          for name, c in rows:
+              if c is not None:
+                  lines.append(f"| {name} | {pct(int(c.get('covered',0)), int(c.get('missed',0)))} |\n")
+
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.writelines(lines)
+          EOF
+
+      - name: Сохранение HTML-отчёта покрытия Core
+        uses: actions/upload-artifact@v4
+        if: always()
         with:
-          file: ./core/build/reports/jacoco/test/jacocoTestReport.xml
-          flags: unittests
-          name: codecov-core
+          name: coverage-report-core
+          path: core/build/reports/jacoco/test/html/
+          retention-days: 7
+
+  test-unit-log-service:
+    needs: build-log-service
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Установка JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Настройка Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Загрузка артефактов сборки Log сервиса
+        uses: actions/download-artifact@v4
+        with:
+          name: log-service-build
+          path: log-service/build/
+
+      - name: Запуск Unit тестов Log сервиса (+ JaCoCo)
+        run: chmod +x log-service/gradlew && cd log-service && ./gradlew test jacocoTestReport
+
+      - name: Проверка порога покрытия Log сервиса (65%)
+        run: cd log-service && ./gradlew jacocoTestCoverageVerification
+
+      - name: Отображение покрытия в Job Summary
+        if: always()
+        run: |
+          python3 - <<'EOF'
+          import xml.etree.ElementTree as ET, os, sys
+
+          report = 'log-service/build/reports/jacoco/test/jacocoTestReport.xml'
+          if not os.path.exists(report):
+              msg = "## Log Service — покрытие кода\n\n> Отчёт не найден: JaCoCo не сгенерировал XML.\n"
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+                  f.write(msg)
+              sys.exit(0)
+
+          tree = ET.parse(report)
+          root = tree.getroot()
+          counters = {c.get('type'): c for c in root.findall('counter')}
+
+          def pct(c, m):
+              total = c + m
+              return f"{c / total * 100:.1f}% ({c}/{total})" if total else "—"
+
+          rows = [
+              ("Инструкции", counters.get('INSTRUCTION')),
+              ("Ветки",      counters.get('BRANCH')),
+              ("Строки",     counters.get('LINE')),
+              ("Методы",     counters.get('METHOD')),
+              ("Классы",     counters.get('CLASS')),
+          ]
+
+          lines = ["## Log Service — покрытие кода\n", "| Метрика | Покрытие |\n", "|---|---|\n"]
+          for name, c in rows:
+              if c is not None:
+                  lines.append(f"| {name} | {pct(int(c.get('covered',0)), int(c.get('missed',0)))} |\n")
+
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.writelines(lines)
+          EOF
+
+      - name: Сохранение HTML-отчёта покрытия Log сервиса
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report-log-service
+          path: log-service/build/reports/jacoco/test/html/
+          retention-days: 7
 
   test-integration-core:
     needs: test-unit-core
@@ -103,8 +243,32 @@ jobs:
       - name: Запуск Интеграционных тестов Core
         run: chmod +x core/gradlew && cd core && ./gradlew integrationTest
 
+  test-integration-log-service:
+    needs: test-unit-log-service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Установка JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Настройка Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Загрузка артефактов сборки Log сервиса
+        uses: actions/download-artifact@v4
+        with:
+          name: log-service-build
+          path: log-service/build/
+
+      - name: Запуск Интеграционных тестов Log сервиса
+        run: chmod +x log-service/gradlew && cd log-service && ./gradlew integrationTest
+
   version:
-    needs: [ test-integration-core ]
+    needs: [ test-integration-core, test-integration-log-service ]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
@@ -125,7 +289,7 @@ jobs:
           WITH_V: true
 
   publish:
-    needs: [ version, build-core ]
+    needs: [ version, build-core, build-log-service ]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -138,6 +302,12 @@ jobs:
         with:
           name: core-build
           path: core/build/
+
+      - name: Загрузка артефактов сборки Log сервиса
+        uses: actions/download-artifact@v4
+        with:
+          name: log-service-build
+          path: log-service/build/
 
       - name: Авторизация в GitHub Container Registry
         uses: docker/login-action@v3
@@ -155,6 +325,16 @@ jobs:
           tags: |
             ghcr.io/frubyl/logboard-core:${{ needs.version.outputs.new_tag }}
             ghcr.io/frubyl/logboard-core:latest
+
+      - name: Сборка и публикация образа Log сервиса
+        uses: docker/build-push-action@v5
+        with:
+          context: ./log-service
+          file: ./log-service/Dockerfile.ci
+          push: true
+          tags: |
+            ghcr.io/frubyl/logboard-log-service:${{ needs.version.outputs.new_tag }}
+            ghcr.io/frubyl/logboard-log-service:latest
 
   deploy:
     needs: [ version, publish ]
@@ -179,6 +359,7 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
             docker pull ghcr.io/frubyl/logboard-core:latest
+            docker pull ghcr.io/frubyl/logboard-log-service:latest
             cd ~/logboard
             docker-compose -f docker-compose.yml down
             docker-compose -f docker-compose.yml up -d

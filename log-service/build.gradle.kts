@@ -1,5 +1,4 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 
 val junitVersion = "5.10.0"
 val jacocoVersion = "0.8.12"
@@ -13,7 +12,7 @@ plugins {
     jacoco
 }
 
-group = "com.github.logboard.core"
+group = "com.github.logboard.log"
 version = "0.0.1-SNAPSHOT"
 
 repositories {
@@ -24,46 +23,35 @@ dependencies {
     // Spring Boot Starters
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("org.springframework.boot:spring-boot-starter-security")
-    implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.boot:spring-boot-starter-cache")
 
     // Database
     implementation("org.postgresql:postgresql:42.6.0")
     implementation("org.liquibase:liquibase-core:4.24.0")
 
-    // JWT
-    implementation("io.jsonwebtoken:jjwt-api:0.11.5")
-    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.11.5")
-    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.11.5")
+    // Cache
+    implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
 
     // Kafka
     implementation("org.springframework.kafka:spring-kafka")
-    testImplementation("org.springframework.kafka:spring-kafka-test")
-    testImplementation("org.testcontainers:kafka:1.20.4")
 
     // Kotlin
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
+    // Logger
+    implementation("io.github.oshai:kotlin-logging-jvm:7.0.0")
+
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("org.springframework.security:spring-security-test")
     testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
     testImplementation("org.mockito:mockito-core:5.7.0")
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.1.0")
-    
+
     // Kotest
     testImplementation("io.kotest:kotest-runner-junit5:5.8.0")
     testImplementation("io.kotest:kotest-assertions-core:5.8.0")
-    testImplementation("io.kotest:kotest-property:5.8.0")
-
-    // Testcontainers for integration tests
-    testImplementation("org.testcontainers:testcontainers:1.20.4")
-    testImplementation("org.testcontainers:junit-jupiter:1.20.4")
-    testImplementation("org.testcontainers:postgresql:1.20.4")
-
-    // Logger
-    implementation("io.github.oshai:kotlin-logging-jvm:7.0.0")
+    testImplementation("io.kotest.extensions:kotest-extensions-spring:1.1.3")
 }
 
 tasks {
@@ -131,8 +119,20 @@ jacoco {
     toolVersion = jacocoVersion
 }
 
+val jacocoExclusions = listOf(
+    "**/Main*",
+    "**/config/**",
+    "**/model/**",
+    "**/event/**"
+)
+
 tasks.jacocoTestReport {
     dependsOn(tasks.test)
+    classDirectories.setFrom(
+        files(classDirectories.files.map {
+            fileTree(it) { exclude(jacocoExclusions) }
+        })
+    )
     reports {
         xml.required.set(true)
         html.required.set(true)
@@ -142,6 +142,11 @@ tasks.jacocoTestReport {
 
 tasks.jacocoTestCoverageVerification {
     dependsOn(tasks.test)
+    classDirectories.setFrom(
+        files(classDirectories.files.map {
+            fileTree(it) { exclude(jacocoExclusions) }
+        })
+    )
     violationRules {
         rule {
             limit {

@@ -48,3 +48,17 @@ Core Service следует традиционной слоистой архит
 - `POST /api-keys` — Создать API ключ (только OWNER/ADMIN)
 - `GET /api-keys?projectId=` — Список API ключей проекта (только OWNER/ADMIN)
 - `DELETE /api-keys/{keyId}` — Отозвать API ключ (только OWNER/ADMIN)
+
+## Публикация событий в Kafka
+
+После успешного создания или отзыва API ключа `ApiKeyService` публикует событие в топик `logboard.api-keys`.
+
+| Операция | Тип события | Поля события |
+|---|---|---|
+| `POST /api-keys` | `CREATED` | `keyId`, `projectId`, `keyHash`, `expiresAt` |
+| `DELETE /api-keys/{keyId}` | `REVOKED` | `keyId`, `keyHash` |
+
+`keyHash` включён в событие `REVOKED`, чтобы Log Service мог вытеснить запись из Caffeine-кэша без дополнительного запроса к базе данных.
+
+Класс события: `com.github.logboard.core.event.ApiKeyEvent`  
+Топик: `KafkaTopics.API_KEYS = "logboard.api-keys"`
