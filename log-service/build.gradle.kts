@@ -121,10 +121,8 @@ jacoco {
 val jacocoExclusions = listOf(
     "**/Main*",
     "**/config/**",
-    "**/repository/ElasticsearchLogRepository*",
-    "**/repository/ClickHouseLogRepository*",
-    "**/repository/SharedApiKeyRepository*",
-    "**/repository/SharedProjectMemberRepository*"
+    "**/model/**",
+    "**/event/**"
 )
 
 tasks.jacocoTestReport {

@@ -58,6 +58,9 @@ jobs:
   test-unit-core:
     needs: build-core
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v3
 
@@ -76,22 +79,36 @@ jobs:
           name: core-build
           path: core/build/
 
-      - name: Запуск Unit тестов Core
+      - name: Запуск Unit тестов Core (+ JaCoCo)
         run: chmod +x core/gradlew && cd core && ./gradlew test
 
-      - name: Генерация отчета покрытия кода
-        run: cd core && ./gradlew jacocoTestReport
+      - name: Проверка порога покрытия Core (65%)
+        run: cd core && ./gradlew jacocoTestCoverageVerification
 
-      - name: Загрузка отчета о покрытии кода в Codecov
-        uses: codecov/codecov-action@v3
+      - name: Отображение покрытия в PR
+        uses: madrapps/jacoco-report@v1.6.0
+        if: github.event_name == 'pull_request'
         with:
-          file: ./core/build/reports/jacoco/test/jacocoTestReport.xml
-          flags: unittests
-          name: codecov-core
+          paths: ${{ github.workspace }}/core/build/reports/jacoco/test/jacocoTestReport.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: Core Service — покрытие кода
+          min-coverage-overall: 65
+          min-coverage-changed-files: 60
+
+      - name: Сохранение HTML-отчёта покрытия Core
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report-core
+          path: core/build/reports/jacoco/test/html/
+          retention-days: 7
 
   test-unit-log-service:
     needs: build-log-service
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v3
 
@@ -110,18 +127,29 @@ jobs:
           name: log-service-build
           path: log-service/build/
 
-      - name: Запуск Unit тестов Log сервиса
+      - name: Запуск Unit тестов Log сервиса (+ JaCoCo)
         run: chmod +x log-service/gradlew && cd log-service && ./gradlew test
 
-      - name: Генерация отчета покрытия кода
-        run: cd log-service && ./gradlew jacocoTestReport
+      - name: Проверка порога покрытия Log сервиса (65%)
+        run: cd log-service && ./gradlew jacocoTestCoverageVerification
 
-      - name: Загрузка отчета о покрытии кода в Codecov
-        uses: codecov/codecov-action@v3
+      - name: Отображение покрытия в PR
+        uses: madrapps/jacoco-report@v1.6.0
+        if: github.event_name == 'pull_request'
         with:
-          file: ./log-service/build/reports/jacoco/test/jacocoTestReport.xml
-          flags: unittests-log
-          name: codecov-log
+          paths: ${{ github.workspace }}/log-service/build/reports/jacoco/test/jacocoTestReport.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: Log Service — покрытие кода
+          min-coverage-overall: 65
+          min-coverage-changed-files: 60
+
+      - name: Сохранение HTML-отчёта покрытия Log сервиса
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report-log-service
+          path: log-service/build/reports/jacoco/test/html/
+          retention-days: 7
 
   test-integration-core:
     needs: test-unit-core
