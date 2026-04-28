@@ -3,8 +3,6 @@ package com.github.logboard.core.service
 import com.github.logboard.core.dto.ProjectMemberAddRequest
 import com.github.logboard.core.dto.ProjectMemberDto
 import com.github.logboard.core.dto.ProjectMemberRoleUpdateRequest
-import com.github.logboard.core.event.KafkaTopics
-import com.github.logboard.core.event.ProjectMemberEvent
 import com.github.logboard.core.exception.common.AlreadyExistsException
 import com.github.logboard.core.exception.common.ForbiddenException
 import com.github.logboard.core.exception.common.NotFoundException
@@ -14,7 +12,6 @@ import com.github.logboard.core.model.ProjectRole
 import com.github.logboard.core.repository.ProjectMemberRepository
 import com.github.logboard.core.repository.ProjectRepository
 import org.slf4j.LoggerFactory
-import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.*
@@ -23,8 +20,7 @@ import java.util.*
 class ProjectMemberService(
     private val projectRepository: ProjectRepository,
     private val projectMemberRepository: ProjectMemberRepository,
-    private val userService: UserService,
-    private val kafkaTemplate: KafkaTemplate<String, Any>
+    private val userService: UserService
 ) {
 
     companion object {
@@ -93,17 +89,6 @@ class ProjectMemberService(
         val saved = projectMemberRepository.save(member)
         logger.info("Member '${request.username}' added to project $projectId with role ${request.role}")
 
-        kafkaTemplate.send(
-            KafkaTopics.PROJECT_MEMBERS,
-            "$projectId:${newUser.id}",
-            ProjectMemberEvent(
-                eventType = ProjectMemberEvent.EventType.ADDED,
-                projectId = projectId,
-                userId = newUser.id!!,
-                role = saved.role.name
-            )
-        )
-
         return ProjectMemberDto(
             userId = newUser.id!!,
             username = newUser.username,
@@ -139,16 +124,6 @@ class ProjectMemberService(
 
         projectMemberRepository.delete(target)
         logger.info("Member $targetUserId removed from project $projectId")
-
-        kafkaTemplate.send(
-            KafkaTopics.PROJECT_MEMBERS,
-            "$projectId:$targetUserId",
-            ProjectMemberEvent(
-                eventType = ProjectMemberEvent.EventType.REMOVED,
-                projectId = projectId,
-                userId = targetUserId
-            )
-        )
     }
 
     @Transactional
@@ -184,17 +159,6 @@ class ProjectMemberService(
         target.role = request.role
         val saved = projectMemberRepository.save(target)
         logger.info("Role of member $targetUserId in project $projectId updated to ${request.role}")
-
-        kafkaTemplate.send(
-            KafkaTopics.PROJECT_MEMBERS,
-            "$projectId:$targetUserId",
-            ProjectMemberEvent(
-                eventType = ProjectMemberEvent.EventType.ROLE_CHANGED,
-                projectId = projectId,
-                userId = targetUserId,
-                role = saved.role.name
-            )
-        )
 
         return ProjectMemberDto(
             userId = targetUserId,

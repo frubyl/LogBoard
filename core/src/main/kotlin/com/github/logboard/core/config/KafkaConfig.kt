@@ -12,8 +12,4 @@ class KafkaConfig {
     @Bean
     fun apiKeysTopic(): NewTopic =
         TopicBuilder.name(KafkaTopics.API_KEYS).partitions(1).replicas(1).build()
-
-    @Bean
-    fun projectMembersTopic(): NewTopic =
-        TopicBuilder.name(KafkaTopics.PROJECT_MEMBERS).partitions(1).replicas(1).build()
 }
