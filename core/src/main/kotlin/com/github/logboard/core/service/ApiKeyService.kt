@@ -127,13 +127,14 @@ class ApiKeyService(
             throw ForbiddenException("Only project OWNER or ADMIN can revoke API keys")
         }
 
+        val keyHash = apiKey.keyHash
         apiKeyRepository.delete(apiKey)
         logger.info("API key $keyId revoked successfully")
 
         kafkaTemplate.send(
             KafkaTopics.API_KEYS,
             keyId.toString(),
-            ApiKeyEvent(eventType = ApiKeyEvent.EventType.REVOKED, keyId = keyId)
+            ApiKeyEvent(eventType = ApiKeyEvent.EventType.REVOKED, keyId = keyId, keyHash = keyHash)
         )
     }
 
