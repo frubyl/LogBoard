@@ -4,9 +4,9 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.logboard.log.model.LocalApiKey
 import com.github.logboard.log.repository.LocalApiKeyRepository
 import io.kotest.core.spec.style.DescribeSpec
+import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.reset
 import org.mockito.kotlin.times
@@ -17,12 +17,12 @@ import org.springframework.cache.caffeine.CaffeineCacheManager
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.test.context.ContextConfiguration
-import org.springframework.test.context.junit.jupiter.SpringExtension
 import java.util.UUID
 
-@ExtendWith(SpringExtension::class)
 @ContextConfiguration(classes = [LocalApiKeyCacheServiceTest.TestConfig::class])
 class LocalApiKeyCacheServiceTest : DescribeSpec() {
+
+    override fun extensions() = listOf(SpringExtension)
 
     init {
         val projectId: UUID = UUID.randomUUID()
