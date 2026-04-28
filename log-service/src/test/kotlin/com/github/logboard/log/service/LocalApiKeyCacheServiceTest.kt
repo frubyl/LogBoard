@@ -16,7 +16,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.context.junit.jupiter.SpringExtension
-import com.github.ben-manes.caffeine.cache.Caffeine
+import com.github.benmanes.caffeine.cache.Caffeine
 import org.junit.jupiter.api.extension.ExtendWith
 import java.util.UUID
 
