@@ -32,20 +32,6 @@ spring:
     listener:
       ack-mode: RECORD
 
-  elasticsearch:
-    uris: ${ELASTICSEARCH_URIS:http://localhost:9200}
-    username: ${ELASTICSEARCH_USERNAME:}
-    password: ${ELASTICSEARCH_PASSWORD:}
-    connection-timeout: 5s
-    socket-timeout: 30s
-
-api-key:
-  hmac-secret: ${API_KEY_HMAC_SECRET:myDefaultHmacSecretForApiKeyHashingLogBoard}
-
-jwt:
-  secret: ${JWT_SECRET:mySecretKeyForLogBoardApplicationWhichIsVeryLongAndSecure}
-
 logging:
   level:
     com.github.logboard: DEBUG
-    org.springframework.security: DEBUG

@@ -69,6 +69,7 @@ class ProjectMemberService(
             throw ForbiddenException("Only OWNER or ADMIN can add members")
         }
 
+        // ADMIN can only add READERs
         if (actor.role == ProjectRole.ADMIN && request.role != ProjectRole.READER) {
             throw ForbiddenException("ADMIN can only add members with READER role")
         }
@@ -118,6 +119,7 @@ class ProjectMemberService(
             throw ForbiddenException("Cannot remove the project OWNER")
         }
 
+        // ADMIN can only remove READERs
         if (actor.role == ProjectRole.ADMIN && target.role != ProjectRole.READER) {
             throw ForbiddenException("ADMIN can only remove members with READER role")
         }

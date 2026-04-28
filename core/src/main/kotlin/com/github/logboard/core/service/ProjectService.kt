@@ -50,7 +50,6 @@ class ProjectService(
         projectMemberRepository.save(projectMember)
 
         logger.info("Project created successfully with id: ${savedProject.id}")
-
         return ProjectCreateResponse(savedProject.id!!)
     }
 
