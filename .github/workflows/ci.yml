@@ -79,7 +79,7 @@ jobs:
           path: core/build/
 
       - name: Запуск Unit тестов Core (+ JaCoCo)
-        run: chmod +x core/gradlew && cd core && ./gradlew test
+        run: chmod +x core/gradlew && cd core && ./gradlew test jacocoTestReport
 
       - name: Проверка порога покрытия Core (65%)
         run: cd core && ./gradlew jacocoTestCoverageVerification
@@ -88,9 +88,16 @@ jobs:
         if: always()
         run: |
           python3 - <<'EOF'
-          import xml.etree.ElementTree as ET, os
+          import xml.etree.ElementTree as ET, os, sys
 
-          tree = ET.parse('core/build/reports/jacoco/test/jacocoTestReport.xml')
+          report = 'core/build/reports/jacoco/test/jacocoTestReport.xml'
+          if not os.path.exists(report):
+              msg = "## Core Service — покрытие кода\n\n> Отчёт не найден: JaCoCo не сгенерировал XML.\n"
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+                  f.write(msg)
+              sys.exit(0)
+
+          tree = ET.parse(report)
           root = tree.getroot()
           counters = {c.get('type'): c for c in root.findall('counter')}
 
@@ -147,7 +154,7 @@ jobs:
           path: log-service/build/
 
       - name: Запуск Unit тестов Log сервиса (+ JaCoCo)
-        run: chmod +x log-service/gradlew && cd log-service && ./gradlew test
+        run: chmod +x log-service/gradlew && cd log-service && ./gradlew test jacocoTestReport
 
       - name: Проверка порога покрытия Log сервиса (65%)
         run: cd log-service && ./gradlew jacocoTestCoverageVerification
@@ -156,9 +163,16 @@ jobs:
         if: always()
         run: |
           python3 - <<'EOF'
-          import xml.etree.ElementTree as ET, os
+          import xml.etree.ElementTree as ET, os, sys
 
-          tree = ET.parse('log-service/build/reports/jacoco/test/jacocoTestReport.xml')
+          report = 'log-service/build/reports/jacoco/test/jacocoTestReport.xml'
+          if not os.path.exists(report):
+              msg = "## Log Service — покрытие кода\n\n> Отчёт не найден: JaCoCo не сгенерировал XML.\n"
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+                  f.write(msg)
+              sys.exit(0)
+
+          tree = ET.parse(report)
           root = tree.getroot()
           counters = {c.get('type'): c for c in root.findall('counter')}
 
