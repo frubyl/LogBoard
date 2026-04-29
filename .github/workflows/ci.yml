@@ -350,6 +350,8 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           source: "docker-compose.yml,docs/openapi.yaml"
           target: ~/logboard/
+          timeout: 30s
+          command_timeout: 2m
 
       - name: Деплой на сервер
         uses: appleboy/ssh-action@v1
@@ -357,6 +359,8 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          connect_timeout: 30s
+          command_timeout: 10m
           script: |
             docker pull ghcr.io/frubyl/logboard-core:latest
             docker pull ghcr.io/frubyl/logboard-log-service:latest
