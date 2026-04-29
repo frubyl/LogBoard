@@ -85,9 +85,9 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
       kafka:
-        condition: service_healthy
+        condition: service_started
     restart: unless-stopped
 
   log-service:
@@ -108,11 +108,11 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
       elasticsearch:
-        condition: service_healthy
+        condition: service_started
       kafka:
-        condition: service_healthy
+        condition: service_started
     restart: unless-stopped
 
   swagger-ui:
