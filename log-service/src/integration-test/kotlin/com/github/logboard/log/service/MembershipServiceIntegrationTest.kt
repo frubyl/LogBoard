@@ -59,7 +59,7 @@ class MembershipServiceIntegrationTest {
     }
 
     @Test
-    fun `получает роль от core service при промахе кеша`() {
+    fun `should fetch role from core service on cache miss`() {
         mockWebServer.enqueue(
             MockResponse()
                 .setResponseCode(200)
@@ -73,7 +73,7 @@ class MembershipServiceIntegrationTest {
     }
 
     @Test
-    fun `кеширует результат в Redis после обращения к core service`() {
+    fun `should cache result in Redis after fetching from core service`() {
         mockWebServer.enqueue(
             MockResponse()
                 .setResponseCode(200)
@@ -87,7 +87,7 @@ class MembershipServiceIntegrationTest {
     }
 
     @Test
-    fun `использует кеш при повторном запросе без обращения к core service`() {
+    fun `should use cache on subsequent request without calling core service`() {
         redisTemplate.opsForValue().set(cacheKey, "READER")
         val service = buildService()
         val requestsBefore = mockWebServer.requestCount
@@ -99,7 +99,7 @@ class MembershipServiceIntegrationTest {
     }
 
     @Test
-    fun `кеширует NONE при ответе 403 от core service`() {
+    fun `should cache NONE when core service returns 403`() {
         mockWebServer.enqueue(MockResponse().setResponseCode(403))
 
         val result = buildService().getMembership(userId, projectId, token)
@@ -109,7 +109,7 @@ class MembershipServiceIntegrationTest {
     }
 
     @Test
-    fun `возвращает null при кешированном значении NONE без обращения к core service`() {
+    fun `should return null for cached NONE without calling core service`() {
         redisTemplate.opsForValue().set(cacheKey, "NONE")
         val service = buildService()
         val requestsBefore = mockWebServer.requestCount
@@ -121,7 +121,7 @@ class MembershipServiceIntegrationTest {
     }
 
     @Test
-    fun `не кеширует результат при недоступности core service (5xx)`() {
+    fun `should not cache result when core service is unavailable (5xx)`() {
         mockWebServer.enqueue(MockResponse().setResponseCode(500))
 
         val result = buildService().getMembership(userId, projectId, token)
@@ -131,7 +131,7 @@ class MembershipServiceIntegrationTest {
     }
 
     @Test
-    fun `кеш имеет TTL`() {
+    fun `should set TTL on cache entry`() {
         mockWebServer.enqueue(
             MockResponse()
                 .setResponseCode(200)
@@ -146,7 +146,7 @@ class MembershipServiceIntegrationTest {
     }
 
     @Test
-    fun `изолирует кеш по парам userId+projectId`() {
+    fun `should isolate cache by userId and projectId pair`() {
         val projectId2 = UUID.randomUUID()
         repeat(2) {
             mockWebServer.enqueue(

@@ -67,7 +67,7 @@ class LogSearchServiceIntegrationTest {
     }
 
     @Test
-    fun `возвращает пустой результат при отсутствии документов`() {
+    fun `should return empty result when no documents exist`() {
         val result = service.search(LogSearchRequest(projectId = UUID.fromString(projectId)))
 
         result.items shouldBe emptyList()
@@ -75,7 +75,7 @@ class LogSearchServiceIntegrationTest {
     }
 
     @Test
-    fun `находит документы по projectId`() {
+    fun `should find documents by projectId`() {
         indexDoc(LogDocumentEs("id-1", projectId, "ing-1", "INFO", "hello", 1000L))
         indexDoc(LogDocumentEs("id-2", otherProjectId, "ing-2", "INFO", "other", 2000L))
 
@@ -86,7 +86,7 @@ class LogSearchServiceIntegrationTest {
     }
 
     @Test
-    fun `фильтрует по level`() {
+    fun `should filter by level`() {
         indexDoc(LogDocumentEs("id-1", projectId, "ing-1", "INFO", "info msg", 1000L))
         indexDoc(LogDocumentEs("id-2", projectId, "ing-1", "ERROR", "error msg", 2000L))
 
@@ -97,7 +97,7 @@ class LogSearchServiceIntegrationTest {
     }
 
     @Test
-    fun `выполняет регистронезависимый поиск по message`() {
+    fun `should search message case-insensitively`() {
         indexDoc(LogDocumentEs("id-1", projectId, "ing-1", "INFO", "Connection timeout error", 1000L))
         indexDoc(LogDocumentEs("id-2", projectId, "ing-1", "ERROR", "null pointer exception", 2000L))
 
@@ -108,7 +108,7 @@ class LogSearchServiceIntegrationTest {
     }
 
     @Test
-    fun `фильтрует по диапазону timestamp`() {
+    fun `should filter by timestamp range`() {
         indexDoc(LogDocumentEs("id-1", projectId, "ing-1", "INFO", "early", 100L))
         indexDoc(LogDocumentEs("id-2", projectId, "ing-1", "INFO", "middle", 500L))
         indexDoc(LogDocumentEs("id-3", projectId, "ing-1", "INFO", "late", 900L))
@@ -120,7 +120,7 @@ class LogSearchServiceIntegrationTest {
     }
 
     @Test
-    fun `возвращает total корректно при пагинации`() {
+    fun `should return correct total when paginating`() {
         repeat(3) { i ->
             indexDoc(LogDocumentEs("id-$i", projectId, "ing-1", "INFO", "msg $i", i.toLong() * 1000))
         }
@@ -132,7 +132,7 @@ class LogSearchServiceIntegrationTest {
     }
 
     @Test
-    fun `сортирует результаты по убыванию timestamp`() {
+    fun `should sort results by timestamp descending`() {
         indexDoc(LogDocumentEs("id-1", projectId, "ing-1", "INFO", "first", 1000L))
         indexDoc(LogDocumentEs("id-2", projectId, "ing-1", "INFO", "third", 3000L))
         indexDoc(LogDocumentEs("id-3", projectId, "ing-1", "INFO", "second", 2000L))
@@ -143,7 +143,7 @@ class LogSearchServiceIntegrationTest {
     }
 
     @Test
-    fun `применяет пагинацию без пересечений`() {
+    fun `should paginate without overlapping results`() {
         repeat(5) { i ->
             indexDoc(LogDocumentEs("id-$i", projectId, "ing-1", "INFO", "msg $i", i.toLong() * 1000))
         }

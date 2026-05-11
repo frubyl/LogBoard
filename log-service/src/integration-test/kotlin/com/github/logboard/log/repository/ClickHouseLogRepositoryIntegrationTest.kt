@@ -69,7 +69,7 @@ class ClickHouseLogRepositoryIntegrationTest {
     // bulkInsert
 
     @Test
-    fun `вставляет документы без ошибок`() {
+    fun `should insert documents without errors`() {
         val docs = listOf(
             LogDocument("id-1", projectId, "ing-1", "INFO", "hello world", 1000L),
             LogDocument("id-2", projectId, "ing-1", "ERROR", "something failed", 2000L)
@@ -81,7 +81,7 @@ class ClickHouseLogRepositoryIntegrationTest {
     }
 
     @Test
-    fun `ничего не делает при пустом списке`() {
+    fun `should do nothing when list is empty`() {
         repository.bulkInsert(emptyList())
 
         val count = jdbcTemplate.queryForObject("SELECT count() FROM logs", Long::class.java)
@@ -91,7 +91,7 @@ class ClickHouseLogRepositoryIntegrationTest {
     // timeline
 
     @Test
-    fun `группирует логи по бакетам и уровням`() {
+    fun `should group logs into buckets by level`() {
         repository.bulkInsert(listOf(
             LogDocument("id-1", projectId, "ing-1", "INFO", "msg", 0L),
             LogDocument("id-2", projectId, "ing-1", "INFO", "msg", 30_000L),
@@ -108,7 +108,7 @@ class ClickHouseLogRepositoryIntegrationTest {
     }
 
     @Test
-    fun `агрегирует по уровню в пределах одного бакета`() {
+    fun `should aggregate by level within a single bucket`() {
         repository.bulkInsert(listOf(
             LogDocument("id-1", projectId, "ing-1", "INFO", "msg", 1000L),
             LogDocument("id-2", projectId, "ing-1", "INFO", "msg", 2000L),
@@ -122,7 +122,7 @@ class ClickHouseLogRepositoryIntegrationTest {
     }
 
     @Test
-    fun `фильтрует по временному диапазону`() {
+    fun `should filter by time range`() {
         repository.bulkInsert(listOf(
             LogDocument("id-1", projectId, "ing-1", "INFO", "early", 100L),
             LogDocument("id-2", projectId, "ing-1", "INFO", "in range", 500L),
@@ -135,7 +135,7 @@ class ClickHouseLogRepositoryIntegrationTest {
     }
 
     @Test
-    fun `фильтрует по level при указании уровня`() {
+    fun `should filter by level when level is specified`() {
         repository.bulkInsert(listOf(
             LogDocument("id-1", projectId, "ing-1", "INFO", "msg", 1000L),
             LogDocument("id-2", projectId, "ing-1", "ERROR", "msg", 2000L),
@@ -150,7 +150,7 @@ class ClickHouseLogRepositoryIntegrationTest {
     }
 
     @Test
-    fun `не включает логи другого проекта`() {
+    fun `should not include logs from another project`() {
         repository.bulkInsert(listOf(
             LogDocument("id-1", projectId, "ing-1", "INFO", "mine", 1000L),
             LogDocument("id-2", "other-project", "ing-2", "INFO", "other", 1000L)
@@ -162,14 +162,14 @@ class ClickHouseLogRepositoryIntegrationTest {
     }
 
     @Test
-    fun `возвращает пустой список если нет логов`() {
+    fun `should return empty list when no logs exist`() {
         val result = repository.timeline(projectId, from = 0L, to = 60_000L, bucketMs = 60_000L, level = null)
 
         result shouldBe emptyList()
     }
 
     @Test
-    fun `бакеты отсортированы по возрастанию`() {
+    fun `should return buckets sorted by timestamp ascending`() {
         repository.bulkInsert(listOf(
             LogDocument("id-1", projectId, "ing-1", "INFO", "msg", 120_000L),
             LogDocument("id-2", projectId, "ing-1", "INFO", "msg", 0L),
