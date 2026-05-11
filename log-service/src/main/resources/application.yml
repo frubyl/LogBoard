@@ -32,6 +32,27 @@ spring:
     listener:
       ack-mode: RECORD
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+  elasticsearch:
+    uris: ${ELASTICSEARCH_URIS:http://localhost:9200}
+
+clickhouse:
+  url: ${CLICKHOUSE_URL:jdbc:clickhouse://localhost:8123/default}
+  username: ${CLICKHOUSE_USERNAME:default}
+  password: ${CLICKHOUSE_PASSWORD:}
+
+jwt:
+  secret: ${JWT_SECRET:mySecretKeyForLogBoardApplicationWhichIsVeryLongAndSecure123456789012345}
+
+core:
+  service:
+    url: ${CORE_SERVICE_URL:http://localhost:8080}
+
 logging:
   level:
     com.github.logboard: DEBUG

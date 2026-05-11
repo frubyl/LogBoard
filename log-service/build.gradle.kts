@@ -24,16 +24,32 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-cache")
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
+    implementation("org.springframework.boot:spring-boot-starter-security")
 
     // Database
     implementation("org.postgresql:postgresql:42.6.0")
     implementation("org.liquibase:liquibase-core:4.24.0")
+
+    // ClickHouse
+    implementation("com.clickhouse:clickhouse-jdbc:0.6.0-patch5") {
+        exclude(group = "com.fasterxml.jackson.core")
+    }
+    implementation("com.zaxxer:HikariCP:5.1.0")
 
     // Cache
     implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
 
     // Kafka
     implementation("org.springframework.kafka:spring-kafka")
+
+    // Elasticsearch
+    implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch")
+
+    // JWT
+    implementation("io.jsonwebtoken:jjwt-api:0.11.5")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.11.5")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.11.5")
 
     // Kotlin
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
@@ -44,14 +60,22 @@ dependencies {
 
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.security:spring-security-test")
     testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
     testImplementation("org.mockito:mockito-core:5.7.0")
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.1.0")
+    testImplementation("org.testcontainers:testcontainers:1.20.4")
+    testImplementation("org.testcontainers:junit-jupiter:1.20.4")
+    testImplementation("org.testcontainers:elasticsearch:1.20.4")
 
     // Kotest
     testImplementation("io.kotest:kotest-runner-junit5:5.8.0")
     testImplementation("io.kotest:kotest-assertions-core:5.8.0")
     testImplementation("io.kotest.extensions:kotest-extensions-spring:1.1.3")
+
+    // MockWebServer for integration tests (no Jetty conflict)
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
 
 tasks {
@@ -123,7 +147,11 @@ val jacocoExclusions = listOf(
     "**/Main*",
     "**/config/**",
     "**/model/**",
-    "**/event/**"
+    "**/event/**",
+    "**/dto/**",
+    "**/security/**",
+    "**/exception/**",
+    "**/client/**"
 )
 
 tasks.jacocoTestReport {
