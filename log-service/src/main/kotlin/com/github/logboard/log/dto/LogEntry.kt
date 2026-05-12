@@ -1,9 +1,9 @@
 package com.github.logboard.log.dto
 
+import java.time.Instant
+
 data class LogEntry(
-    val id: String,
-    val ingestionId: String,
     val level: String,
     val message: String,
-    val timestamp: Long
+    val timestamp: Instant
 )

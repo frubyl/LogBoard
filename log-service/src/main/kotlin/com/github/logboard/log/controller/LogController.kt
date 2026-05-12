@@ -2,8 +2,8 @@ package com.github.logboard.log.controller
 
 import com.github.logboard.log.dto.LogSearchRequest
 import com.github.logboard.log.dto.LogSearchResponse
+import com.github.logboard.log.dto.TimelineItem
 import com.github.logboard.log.dto.TimelineRequest
-import com.github.logboard.log.dto.TimelineResponse
 import com.github.logboard.log.exception.ForbiddenException
 import com.github.logboard.log.security.AuthenticatedUser
 import com.github.logboard.log.service.LogSearchService
@@ -48,7 +48,7 @@ class LogController(
     fun timeline(
         @AuthenticationPrincipal principal: AuthenticatedUser,
         @RequestBody request: TimelineRequest
-    ): ResponseEntity<TimelineResponse> {
+    ): ResponseEntity<List<TimelineItem>> {
         logger.debug("Timeline for project ${request.projectId} by user ${principal.userId}")
 
         membershipService.getMembership(principal.userId, request.projectId, principal.token)

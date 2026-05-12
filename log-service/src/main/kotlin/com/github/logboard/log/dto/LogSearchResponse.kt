@@ -1,8 +1,9 @@
 package com.github.logboard.log.dto
 
+import java.time.Instant
+
 data class LogSearchResponse(
-    val items: List<LogEntry>,
-    val total: Long,
-    val page: Int,
-    val size: Int
+    val logs: List<LogEntry>,
+    val totalCount: Long,
+    val nextCursor: Instant? = null
 )

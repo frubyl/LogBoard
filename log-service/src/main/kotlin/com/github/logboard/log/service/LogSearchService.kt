@@ -1,6 +1,8 @@
 package com.github.logboard.log.service
 
+import co.elastic.clients.elasticsearch._types.FieldValue
 import co.elastic.clients.elasticsearch._types.query_dsl.Query
+import co.elastic.clients.elasticsearch._types.query_dsl.TermsQueryField
 import co.elastic.clients.json.JsonData
 import com.github.logboard.log.dto.LogEntry
 import com.github.logboard.log.dto.LogSearchRequest
@@ -11,6 +13,7 @@ import org.springframework.data.domain.Sort
 import org.springframework.data.elasticsearch.client.elc.NativeQuery
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations
 import org.springframework.stereotype.Service
+import java.time.Instant
 
 @Service
 class LogSearchService(
@@ -20,48 +23,54 @@ class LogSearchService(
     fun search(request: LogSearchRequest): LogSearchResponse {
         val filters = mutableListOf<Query>()
 
-        filters.add(Query.of { q ->
-            q.term { t -> t.field("projectId").value(request.projectId.toString()) }
-        })
-        request.message?.let { msg ->
-            filters.add(Query.of { q -> q.match { m -> m.field("message").query(msg) } })
-        }
-        request.level?.let { lvl ->
-            filters.add(Query.of { q ->
-                q.term { t -> t.field("level").value(lvl) }
-            })
-        }
-        if (request.from != null || request.to != null) {
-            filters.add(Query.of { q ->
-                q.range { r ->
-                    var b = r.field("timestamp")
-                    if (request.from != null) b = b.gte(JsonData.of(request.from))
-                    if (request.to != null) b = b.lte(JsonData.of(request.to))
-                    b
+        filters += Query.of { q -> q.term { t -> t.field("projectId").value(request.projectId.toString()) } }
+
+        request.level?.takeIf { it.isNotEmpty() }?.let { levels ->
+            filters += Query.of { q ->
+                q.terms { t ->
+                    t.field("level").terms(
+                        TermsQueryField.of { tf -> tf.value(levels.map { FieldValue.of(it) }) }
+                    )
                 }
-            })
+            }
         }
 
-        val query = NativeQuery.builder()
-            .withQuery(Query.of { q -> q.bool { b -> b.filter(filters) } })
-            .withPageable(PageRequest.of(request.page, request.size))
-            .withSort(Sort.by(Sort.Direction.DESC, "timestamp"))
-            .build()
+        request.message?.let { msg ->
+            filters += Query.of { q -> q.match { m -> m.field("message").query(msg) } }
+        }
 
-        val hits = elasticsearchOperations.search(query, LogDocumentEs::class.java)
+        filters += Query.of { q ->
+            q.range { r ->
+                r.field("timestamp")
+                    .gte(JsonData.of(request.from.toEpochMilli()))
+                    .lte(JsonData.of(request.to.toEpochMilli()))
+            }
+        }
+
+        val queryBuilder = NativeQuery.builder()
+            .withQuery(Query.of { q -> q.bool { b -> b.filter(filters) } })
+            .withPageable(PageRequest.of(0, request.size))
+            .withSort(Sort.by(Sort.Direction.DESC, "timestamp"))
+
+        request.cursor?.let { cursor ->
+            queryBuilder.withSearchAfter(listOf(cursor.toEpochMilli()))
+        }
+
+        val hits = elasticsearchOperations.search(queryBuilder.build(), LogDocumentEs::class.java)
+        val entries = hits.searchHits.map { it.content.toEntry() }
+
+        val nextCursor = if (entries.size == request.size) entries.last().timestamp else null
+
         return LogSearchResponse(
-            items = hits.searchHits.map { it.content.toEntry() },
-            total = hits.totalHits,
-            page = request.page,
-            size = request.size
+            logs = entries,
+            totalCount = hits.totalHits,
+            nextCursor = nextCursor
         )
     }
 
     private fun LogDocumentEs.toEntry() = LogEntry(
-        id = id,
-        ingestionId = ingestionId,
         level = level,
         message = message,
-        timestamp = timestamp
+        timestamp = Instant.ofEpochMilli(timestamp)
     )
 }

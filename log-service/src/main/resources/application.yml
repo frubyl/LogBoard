@@ -2,6 +2,10 @@ server:
   port: ${SERVER_PORT:8081}
 
 spring:
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/logboard}
     username: ${DATABASE_USERNAME:logboard}
