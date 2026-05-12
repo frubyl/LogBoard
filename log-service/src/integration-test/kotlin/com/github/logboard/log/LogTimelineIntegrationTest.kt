@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.github.logboard.log.dto.TimelineRequest
 import com.github.logboard.log.model.LogDocument
 import com.github.logboard.log.model.MembershipResult
-import io.kotest.matchers.shouldBe
 import jakarta.servlet.http.Cookie
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
 import org.mockito.kotlin.any
@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.time.Instant
 import java.util.UUID
 
 @SpringBootTest
@@ -42,30 +43,28 @@ class LogTimelineIntegrationTest : AbstractIntegrationTest() {
 
     private fun timelineRequest(
         projectId: UUID,
-        from: Long = 0L,
-        to: Long = 120_000L,
-        bucketMs: Long = 60_000L,
-        level: String? = null
-    ): String = objectMapper.writeValueAsString(TimelineRequest(projectId, from, to, bucketMs, level))
+        from: Instant = Instant.EPOCH,
+        to: Instant = Instant.ofEpochMilli(120_000L),
+        level: List<String>? = null,
+        message: String? = null
+    ): String = objectMapper.writeValueAsString(TimelineRequest(projectId, from, to, level, message))
 
     @Test
-    fun `should return 200 with timeline buckets for authenticated project member`() {
-        // Given
+    fun `should return 200 with timeline items for authenticated project member`() {
         val projectId = UUID.randomUUID()
         insertLogs(
             LogDocument("t-id-1", projectId.toString(), "ing-1", "INFO", "msg", 1000L),
-            LogDocument("t-id-2", projectId.toString(), "ing-1", "ERROR", "msg", 2000L)
+            LogDocument("t-id-2", projectId.toString(), "ing-1", "ERROR", "msg", 61_000L)
         )
 
-        // When & Then
         mockMvc.perform(
             post("/logs/timeline")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(timelineRequest(projectId))
                 .cookie(Cookie("access_token", makeToken(userId)))
         ).andExpect(status().isOk())
-            .andExpect(jsonPath("$.buckets").isArray)
-            .andExpect(jsonPath("$.buckets.length()").value(2))
+            .andExpect(jsonPath("$").isArray)
+            .andExpect(jsonPath("$.length()").value(2))
     }
 
     @Test
@@ -79,11 +78,9 @@ class LogTimelineIntegrationTest : AbstractIntegrationTest() {
 
     @Test
     fun `should return 403 when user is not a member of the project`() {
-        // Given
         val projectId = UUID.randomUUID()
         given(coreServiceClient.getMembership(eq(projectId), any())).willReturn(MembershipResult.NotMember)
 
-        // When & Then
         mockMvc.perform(
             post("/logs/timeline")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -94,24 +91,21 @@ class LogTimelineIntegrationTest : AbstractIntegrationTest() {
     }
 
     @Test
-    fun `should return empty buckets when project has no logs`() {
-        // Given
+    fun `should return empty array when project has no logs`() {
         val projectId = UUID.randomUUID()
 
-        // When & Then
         mockMvc.perform(
             post("/logs/timeline")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(timelineRequest(projectId))
                 .cookie(Cookie("access_token", makeToken(userId)))
         ).andExpect(status().isOk())
-            .andExpect(jsonPath("$.buckets").isArray)
-            .andExpect(jsonPath("$.buckets.length()").value(0))
+            .andExpect(jsonPath("$").isArray)
+            .andExpect(jsonPath("$.length()").value(0))
     }
 
     @Test
     fun `should group logs into correct time buckets`() {
-        // Given
         val projectId = UUID.randomUUID()
         insertLogs(
             LogDocument("t-id-3", projectId.toString(), "ing-1", "INFO", "msg", 1000L),
@@ -119,27 +113,22 @@ class LogTimelineIntegrationTest : AbstractIntegrationTest() {
             LogDocument("t-id-5", projectId.toString(), "ing-1", "INFO", "msg", 61_000L)
         )
 
-        // When
         val result = mockMvc.perform(
             post("/logs/timeline")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(timelineRequest(projectId, from = 0L, to = 120_000L, bucketMs = 60_000L))
+                .content(timelineRequest(projectId, from = Instant.EPOCH, to = Instant.ofEpochMilli(120_000L)))
                 .cookie(Cookie("access_token", makeToken(userId)))
         ).andExpect(status().isOk())
             .andReturn()
 
-        // Then
         val body = objectMapper.readTree(result.response.contentAsString)
-        val buckets = body["buckets"]
-        val bucket0 = buckets.filter { it["bucket"].asLong() == 0L }.sumOf { it["count"].asLong() }
-        val bucket60 = buckets.filter { it["bucket"].asLong() == 60_000L }.sumOf { it["count"].asLong() }
-        bucket0 shouldBe 2L
-        bucket60 shouldBe 1L
+        assertEquals(2, body.size())
+        val totalCounts = body.map { it["totalCount"].asLong() }.sortedDescending()
+        assertEquals(listOf(2L, 1L), totalCounts)
     }
 
     @Test
-    fun `should aggregate by level within a bucket`() {
-        // Given
+    fun `should aggregate error and warn counts per bucket`() {
         val projectId = UUID.randomUUID()
         insertLogs(
             LogDocument("t-id-6", projectId.toString(), "ing-1", "INFO", "msg", 1000L),
@@ -147,25 +136,20 @@ class LogTimelineIntegrationTest : AbstractIntegrationTest() {
             LogDocument("t-id-8", projectId.toString(), "ing-1", "ERROR", "msg", 3000L)
         )
 
-        // When
-        val result = mockMvc.perform(
+        mockMvc.perform(
             post("/logs/timeline")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(timelineRequest(projectId, from = 0L, to = 60_000L, bucketMs = 60_000L))
+                .content(timelineRequest(projectId, from = Instant.EPOCH, to = Instant.ofEpochMilli(60_000L)))
                 .cookie(Cookie("access_token", makeToken(userId)))
         ).andExpect(status().isOk())
-            .andExpect(jsonPath("$.buckets.length()").value(2))
-            .andReturn()
-
-        // Then
-        val buckets = objectMapper.readTree(result.response.contentAsString)["buckets"]
-        buckets.first { it["level"].asText() == "INFO" }["count"].asLong() shouldBe 2L
-        buckets.first { it["level"].asText() == "ERROR" }["count"].asLong() shouldBe 1L
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].totalCount").value(3))
+            .andExpect(jsonPath("$[0].errorCount").value(1))
+            .andExpect(jsonPath("$[0].warnCount").value(0))
     }
 
     @Test
     fun `should filter by time range`() {
-        // Given
         val projectId = UUID.randomUUID()
         insertLogs(
             LogDocument("t-id-9", projectId.toString(), "ing-1", "INFO", "early", 100L),
@@ -173,19 +157,17 @@ class LogTimelineIntegrationTest : AbstractIntegrationTest() {
             LogDocument("t-id-11", projectId.toString(), "ing-1", "INFO", "late", 900L)
         )
 
-        // When & Then
         mockMvc.perform(
             post("/logs/timeline")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(timelineRequest(projectId, from = 400L, to = 600L, bucketMs = 60_000L))
+                .content(timelineRequest(projectId, from = Instant.ofEpochMilli(400L), to = Instant.ofEpochMilli(600L)))
                 .cookie(Cookie("access_token", makeToken(userId)))
         ).andExpect(status().isOk())
-            .andExpect(jsonPath("$.buckets.length()").value(1))
+            .andExpect(jsonPath("$.length()").value(1))
     }
 
     @Test
     fun `should filter by level when specified`() {
-        // Given
         val projectId = UUID.randomUUID()
         insertLogs(
             LogDocument("t-id-12", projectId.toString(), "ing-1", "INFO", "msg", 1000L),
@@ -193,21 +175,19 @@ class LogTimelineIntegrationTest : AbstractIntegrationTest() {
             LogDocument("t-id-14", projectId.toString(), "ing-1", "WARN", "msg", 3000L)
         )
 
-        // When & Then
         mockMvc.perform(
             post("/logs/timeline")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(timelineRequest(projectId, level = "ERROR"))
+                .content(timelineRequest(projectId, level = listOf("ERROR")))
                 .cookie(Cookie("access_token", makeToken(userId)))
         ).andExpect(status().isOk())
-            .andExpect(jsonPath("$.buckets.length()").value(1))
-            .andExpect(jsonPath("$.buckets[0].level").value("ERROR"))
-            .andExpect(jsonPath("$.buckets[0].count").value(1))
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].totalCount").value(1))
+            .andExpect(jsonPath("$[0].errorCount").value(1))
     }
 
     @Test
     fun `should not include logs from another project`() {
-        // Given
         val projectId = UUID.randomUUID()
         val otherProjectId = UUID.randomUUID()
         insertLogs(
@@ -215,41 +195,37 @@ class LogTimelineIntegrationTest : AbstractIntegrationTest() {
             LogDocument("t-id-16", otherProjectId.toString(), "ing-2", "INFO", "other", 2000L)
         )
 
-        // When & Then
         mockMvc.perform(
             post("/logs/timeline")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(timelineRequest(projectId))
                 .cookie(Cookie("access_token", makeToken(userId)))
         ).andExpect(status().isOk())
-            .andExpect(jsonPath("$.buckets.length()").value(1))
+            .andExpect(jsonPath("$.length()").value(1))
     }
 
     @Test
-    fun `should return buckets with required fields`() {
-        // Given
+    fun `should return items with required fields`() {
         val projectId = UUID.randomUUID()
         insertLogs(LogDocument("t-id-17", projectId.toString(), "ing-1", "INFO", "msg", 1000L))
 
-        // When & Then
         mockMvc.perform(
             post("/logs/timeline")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(timelineRequest(projectId))
                 .cookie(Cookie("access_token", makeToken(userId)))
         ).andExpect(status().isOk())
-            .andExpect(jsonPath("$.buckets[0].bucket").exists())
-            .andExpect(jsonPath("$.buckets[0].level").value("INFO"))
-            .andExpect(jsonPath("$.buckets[0].count").value(1))
+            .andExpect(jsonPath("$[0].timestamp").exists())
+            .andExpect(jsonPath("$[0].totalCount").value(1))
+            .andExpect(jsonPath("$[0].errorCount").value(0))
+            .andExpect(jsonPath("$[0].warnCount").value(0))
     }
 
     @Test
     fun `should return 403 when core service is unavailable and no cache`() {
-        // Given
         val projectId = UUID.randomUUID()
         given(coreServiceClient.getMembership(eq(projectId), any())).willReturn(MembershipResult.Unavailable)
 
-        // When & Then
         mockMvc.perform(
             post("/logs/timeline")
                 .contentType(MediaType.APPLICATION_JSON)

@@ -2,8 +2,10 @@ package com.github.logboard.log.service
 
 import com.github.logboard.log.dto.LogSearchRequest
 import com.github.logboard.log.model.LogDocumentEs
-import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -18,6 +20,7 @@ import org.springframework.data.elasticsearch.core.mapping.SimpleElasticsearchMa
 import org.springframework.data.elasticsearch.core.query.IndexQueryBuilder
 import org.testcontainers.elasticsearch.ElasticsearchContainer
 import org.testcontainers.utility.DockerImageName
+import java.time.Instant
 import java.util.UUID
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -35,6 +38,8 @@ class LogSearchServiceIntegrationTest {
 
     private val projectId = UUID.randomUUID().toString()
     private val otherProjectId = UUID.randomUUID().toString()
+    private val defaultFrom = Instant.EPOCH
+    private val defaultTo = Instant.parse("2099-01-01T00:00:00Z")
 
     @BeforeAll
     fun startContainer() {
@@ -68,10 +73,11 @@ class LogSearchServiceIntegrationTest {
 
     @Test
     fun `should return empty result when no documents exist`() {
-        val result = service.search(LogSearchRequest(projectId = UUID.fromString(projectId)))
+        val result = service.search(LogSearchRequest(projectId = UUID.fromString(projectId), from = defaultFrom, to = defaultTo))
 
-        result.items shouldBe emptyList()
-        result.total shouldBe 0L
+        assertEquals(emptyList<Any>(), result.logs)
+        assertEquals(0L, result.totalCount)
+        assertNull(result.nextCursor)
     }
 
     @Test
@@ -79,10 +85,10 @@ class LogSearchServiceIntegrationTest {
         indexDoc(LogDocumentEs("id-1", projectId, "ing-1", "INFO", "hello", 1000L))
         indexDoc(LogDocumentEs("id-2", otherProjectId, "ing-2", "INFO", "other", 2000L))
 
-        val result = service.search(LogSearchRequest(projectId = UUID.fromString(projectId)))
+        val result = service.search(LogSearchRequest(projectId = UUID.fromString(projectId), from = defaultFrom, to = defaultTo))
 
-        result.items.size shouldBe 1
-        result.items.first().id shouldBe "id-1"
+        assertEquals(1, result.logs.size)
+        assertEquals("hello", result.logs.first().message)
     }
 
     @Test
@@ -90,10 +96,12 @@ class LogSearchServiceIntegrationTest {
         indexDoc(LogDocumentEs("id-1", projectId, "ing-1", "INFO", "info msg", 1000L))
         indexDoc(LogDocumentEs("id-2", projectId, "ing-1", "ERROR", "error msg", 2000L))
 
-        val result = service.search(LogSearchRequest(projectId = UUID.fromString(projectId), level = "ERROR"))
+        val result = service.search(
+            LogSearchRequest(projectId = UUID.fromString(projectId), from = defaultFrom, to = defaultTo, level = listOf("ERROR"))
+        )
 
-        result.items.size shouldBe 1
-        result.items.first().level shouldBe "ERROR"
+        assertEquals(1, result.logs.size)
+        assertEquals("ERROR", result.logs.first().level)
     }
 
     @Test
@@ -101,10 +109,12 @@ class LogSearchServiceIntegrationTest {
         indexDoc(LogDocumentEs("id-1", projectId, "ing-1", "INFO", "Connection timeout error", 1000L))
         indexDoc(LogDocumentEs("id-2", projectId, "ing-1", "ERROR", "null pointer exception", 2000L))
 
-        val result = service.search(LogSearchRequest(projectId = UUID.fromString(projectId), message = "TIMEOUT"))
+        val result = service.search(
+            LogSearchRequest(projectId = UUID.fromString(projectId), from = defaultFrom, to = defaultTo, message = "TIMEOUT")
+        )
 
-        result.items.size shouldBe 1
-        result.items.first().id shouldBe "id-1"
+        assertEquals(1, result.logs.size)
+        assertEquals("Connection timeout error", result.logs.first().message)
     }
 
     @Test
@@ -113,10 +123,16 @@ class LogSearchServiceIntegrationTest {
         indexDoc(LogDocumentEs("id-2", projectId, "ing-1", "INFO", "middle", 500L))
         indexDoc(LogDocumentEs("id-3", projectId, "ing-1", "INFO", "late", 900L))
 
-        val result = service.search(LogSearchRequest(projectId = UUID.fromString(projectId), from = 200L, to = 800L))
+        val result = service.search(
+            LogSearchRequest(
+                projectId = UUID.fromString(projectId),
+                from = Instant.ofEpochMilli(200L),
+                to = Instant.ofEpochMilli(800L)
+            )
+        )
 
-        result.items.size shouldBe 1
-        result.items.first().id shouldBe "id-2"
+        assertEquals(1, result.logs.size)
+        assertEquals("middle", result.logs.first().message)
     }
 
     @Test
@@ -125,10 +141,12 @@ class LogSearchServiceIntegrationTest {
             indexDoc(LogDocumentEs("id-$i", projectId, "ing-1", "INFO", "msg $i", i.toLong() * 1000))
         }
 
-        val result = service.search(LogSearchRequest(projectId = UUID.fromString(projectId), size = 1))
+        val result = service.search(
+            LogSearchRequest(projectId = UUID.fromString(projectId), from = defaultFrom, to = defaultTo, size = 1)
+        )
 
-        result.total shouldBe 3L
-        result.items.size shouldBe 1
+        assertEquals(3L, result.totalCount)
+        assertEquals(1, result.logs.size)
     }
 
     @Test
@@ -137,23 +155,32 @@ class LogSearchServiceIntegrationTest {
         indexDoc(LogDocumentEs("id-2", projectId, "ing-1", "INFO", "third", 3000L))
         indexDoc(LogDocumentEs("id-3", projectId, "ing-1", "INFO", "second", 2000L))
 
-        val result = service.search(LogSearchRequest(projectId = UUID.fromString(projectId)))
+        val result = service.search(LogSearchRequest(projectId = UUID.fromString(projectId), from = defaultFrom, to = defaultTo))
 
-        result.items.map { it.timestamp } shouldBe listOf(3000L, 2000L, 1000L)
+        assertEquals(
+            listOf(Instant.ofEpochMilli(3000L), Instant.ofEpochMilli(2000L), Instant.ofEpochMilli(1000L)),
+            result.logs.map { it.timestamp }
+        )
     }
 
     @Test
     fun `should paginate without overlapping results`() {
         repeat(5) { i ->
-            indexDoc(LogDocumentEs("id-$i", projectId, "ing-1", "INFO", "msg $i", i.toLong() * 1000))
+            indexDoc(LogDocumentEs("id-$i", projectId, "ing-1", "INFO", "msg $i", i.toLong() * 1000 + 1000))
         }
 
-        val page0 = service.search(LogSearchRequest(projectId = UUID.fromString(projectId), page = 0, size = 2))
-        val page1 = service.search(LogSearchRequest(projectId = UUID.fromString(projectId), page = 1, size = 2))
+        val page1 = service.search(
+            LogSearchRequest(projectId = UUID.fromString(projectId), from = defaultFrom, to = defaultTo, size = 2)
+        )
+        val page2 = service.search(
+            LogSearchRequest(projectId = UUID.fromString(projectId), from = defaultFrom, to = defaultTo, size = 2, cursor = page1.nextCursor)
+        )
 
-        page0.items.size shouldBe 2
-        page1.items.size shouldBe 2
-        page0.items.map { it.id }.intersect(page1.items.map { it.id }.toSet()).size shouldBe 0
-        page0.total shouldBe 5L
+        assertEquals(2, page1.logs.size)
+        assertEquals(2, page2.logs.size)
+        val timestamps1 = page1.logs.map { it.timestamp }.toSet()
+        val timestamps2 = page2.logs.map { it.timestamp }.toSet()
+        assertTrue(timestamps1.intersect(timestamps2).isEmpty())
+        assertEquals(5L, page1.totalCount)
     }
 }

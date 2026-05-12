@@ -1,9 +1,11 @@
 package com.github.logboard.log.repository
 
+import com.github.logboard.log.dto.TimelineItem
 import com.github.logboard.log.model.LogDocument
 import com.zaxxer.hikari.HikariDataSource
-import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -13,6 +15,7 @@ import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.utility.DockerImageName
 import java.time.Duration
+import java.time.Instant
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ClickHouseLogRepositoryIntegrationTest {
@@ -69,8 +72,6 @@ class ClickHouseLogRepositoryIntegrationTest {
         clickHouseContainer.stop()
     }
 
-    // bulkInsert
-
     @Test
     fun `should insert documents without errors`() {
         val docs = listOf(
@@ -80,7 +81,7 @@ class ClickHouseLogRepositoryIntegrationTest {
         repository.bulkInsert(docs)
 
         val count = jdbcTemplate.queryForObject("SELECT count() FROM logs WHERE project_id = ?", Long::class.java, projectId)
-        count shouldBe 2L
+        assertEquals(2L, count!!)
     }
 
     @Test
@@ -88,13 +89,11 @@ class ClickHouseLogRepositoryIntegrationTest {
         repository.bulkInsert(emptyList())
 
         val count = jdbcTemplate.queryForObject("SELECT count() FROM logs", Long::class.java)
-        count shouldBe 0L
+        assertEquals(0L, count!!)
     }
 
-    // timeline
-
     @Test
-    fun `should group logs into buckets by level`() {
+    fun `should group logs into time buckets`() {
         repository.bulkInsert(listOf(
             LogDocument("id-1", projectId, "ing-1", "INFO", "msg", 0L),
             LogDocument("id-2", projectId, "ing-1", "INFO", "msg", 30_000L),
@@ -102,26 +101,28 @@ class ClickHouseLogRepositoryIntegrationTest {
             LogDocument("id-4", projectId, "ing-1", "INFO", "msg", 60_000L)
         ))
 
-        val result = repository.timeline(projectId, from = 0L, to = 90_000L, bucketMs = 60_000L, level = null)
+        val result = repository.timeline(projectId, from = 0L, to = 90_000L, bucketMs = 60_000L, levels = null, message = null)
 
-        val bucket0 = result.filter { it.bucket == 0L }
-        val bucket60 = result.filter { it.bucket == 60_000L }
-        bucket0.sumOf { it.count } shouldBe 3L
-        bucket60.sumOf { it.count } shouldBe 1L
+        val bucket0 = result.find { it.timestamp == Instant.ofEpochMilli(0L) }!!
+        val bucket60 = result.find { it.timestamp == Instant.ofEpochMilli(60_000L) }!!
+        assertEquals(3L, bucket0.totalCount)
+        assertEquals(1L, bucket60.totalCount)
     }
 
     @Test
-    fun `should aggregate by level within a single bucket`() {
+    fun `should aggregate error and warn counts per bucket`() {
         repository.bulkInsert(listOf(
             LogDocument("id-1", projectId, "ing-1", "INFO", "msg", 1000L),
             LogDocument("id-2", projectId, "ing-1", "INFO", "msg", 2000L),
             LogDocument("id-3", projectId, "ing-1", "ERROR", "msg", 3000L)
         ))
 
-        val result = repository.timeline(projectId, from = 0L, to = 60_000L, bucketMs = 60_000L, level = null)
+        val result = repository.timeline(projectId, from = 0L, to = 60_000L, bucketMs = 60_000L, levels = null, message = null)
 
-        result.first { it.level == "INFO" }.count shouldBe 2L
-        result.first { it.level == "ERROR" }.count shouldBe 1L
+        assertEquals(1, result.size)
+        assertEquals(3L, result.first().totalCount)
+        assertEquals(1L, result.first().errorCount)
+        assertEquals(0L, result.first().warnCount)
     }
 
     @Test
@@ -132,24 +133,24 @@ class ClickHouseLogRepositoryIntegrationTest {
             LogDocument("id-3", projectId, "ing-1", "INFO", "late", 900L)
         ))
 
-        val result = repository.timeline(projectId, from = 400L, to = 600L, bucketMs = 60_000L, level = null)
+        val result = repository.timeline(projectId, from = 400L, to = 600L, bucketMs = 60_000L, levels = null, message = null)
 
-        result.sumOf { it.count } shouldBe 1L
+        assertEquals(1L, result.sumOf { it.totalCount })
     }
 
     @Test
-    fun `should filter by level when level is specified`() {
+    fun `should filter by levels when levels are specified`() {
         repository.bulkInsert(listOf(
             LogDocument("id-1", projectId, "ing-1", "INFO", "msg", 1000L),
             LogDocument("id-2", projectId, "ing-1", "ERROR", "msg", 2000L),
             LogDocument("id-3", projectId, "ing-1", "WARN", "msg", 3000L)
         ))
 
-        val result = repository.timeline(projectId, from = 0L, to = 60_000L, bucketMs = 60_000L, level = "ERROR")
+        val result = repository.timeline(projectId, from = 0L, to = 60_000L, bucketMs = 60_000L, levels = listOf("ERROR"), message = null)
 
-        result.size shouldBe 1
-        result.first().level shouldBe "ERROR"
-        result.first().count shouldBe 1L
+        assertEquals(1, result.size)
+        assertEquals(1L, result.first().totalCount)
+        assertEquals(1L, result.first().errorCount)
     }
 
     @Test
@@ -159,16 +160,16 @@ class ClickHouseLogRepositoryIntegrationTest {
             LogDocument("id-2", "other-project", "ing-2", "INFO", "other", 1000L)
         ))
 
-        val result = repository.timeline(projectId, from = 0L, to = 60_000L, bucketMs = 60_000L, level = null)
+        val result = repository.timeline(projectId, from = 0L, to = 60_000L, bucketMs = 60_000L, levels = null, message = null)
 
-        result.sumOf { it.count } shouldBe 1L
+        assertEquals(1L, result.sumOf { it.totalCount })
     }
 
     @Test
     fun `should return empty list when no logs exist`() {
-        val result = repository.timeline(projectId, from = 0L, to = 60_000L, bucketMs = 60_000L, level = null)
+        val result = repository.timeline(projectId, from = 0L, to = 60_000L, bucketMs = 60_000L, levels = null, message = null)
 
-        result shouldBe emptyList()
+        assertEquals(emptyList<TimelineItem>(), result)
     }
 
     @Test
@@ -179,9 +180,9 @@ class ClickHouseLogRepositoryIntegrationTest {
             LogDocument("id-3", projectId, "ing-1", "INFO", "msg", 60_000L)
         ))
 
-        val result = repository.timeline(projectId, from = 0L, to = 180_000L, bucketMs = 60_000L, level = null)
+        val result = repository.timeline(projectId, from = 0L, to = 180_000L, bucketMs = 60_000L, levels = null, message = null)
 
-        val buckets = result.map { it.bucket }
-        buckets shouldBe buckets.sorted()
+        val timestamps = result.map { it.timestamp }
+        assertEquals(timestamps.sorted(), timestamps)
     }
 }

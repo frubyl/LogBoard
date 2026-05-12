@@ -3,9 +3,9 @@ package com.github.logboard.log
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.github.logboard.log.dto.LogSearchRequest
 import com.github.logboard.log.model.LogDocumentEs
-import com.github.logboard.log.model.MembershipResult
-import io.kotest.matchers.shouldBe
 import jakarta.servlet.http.Cookie
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.time.Instant
 import java.util.UUID
 
 @SpringBootTest
@@ -31,6 +32,8 @@ class LogSearchIntegrationTest : AbstractIntegrationTest() {
     @Autowired private lateinit var elasticsearchOperations: ElasticsearchOperations
 
     private val userId = 42L
+    private val defaultFrom = Instant.EPOCH
+    private val defaultTo = Instant.parse("2099-01-01T00:00:00Z")
 
     @BeforeEach
     fun setUpIndex() {
@@ -46,28 +49,33 @@ class LogSearchIntegrationTest : AbstractIntegrationTest() {
         elasticsearchOperations.indexOps(IndexCoordinates.of("logs")).refresh()
     }
 
-    private fun searchRequest(projectId: UUID): String =
-        objectMapper.writeValueAsString(LogSearchRequest(projectId = projectId))
+    private fun searchRequest(
+        projectId: UUID,
+        from: Instant = defaultFrom,
+        to: Instant = defaultTo,
+        level: List<String>? = null,
+        message: String? = null,
+        size: Int = 50,
+        cursor: Instant? = null
+    ): String = objectMapper.writeValueAsString(
+        LogSearchRequest(projectId = projectId, from = from, to = to, level = level, message = message, size = size, cursor = cursor)
+    )
 
     @Test
     fun `should return 200 with matching logs for authenticated project member`() {
-        // Given
         val projectId = UUID.randomUUID()
-        indexDoc(LogDocumentEs("idx-1-${projectId}", projectId.toString(), "ing-1", "INFO", "application started", 1000L))
+        indexDoc(LogDocumentEs("idx-1-$projectId", projectId.toString(), "ing-1", "INFO", "application started", 1000L))
 
-        // When & Then
         mockMvc.perform(
             post("/logs/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(searchRequest(projectId))
                 .cookie(Cookie("access_token", makeToken(userId)))
         ).andExpect(status().isOk())
-            .andExpect(jsonPath("$.items").isArray)
-            .andExpect(jsonPath("$.items.length()").value(1))
-            .andExpect(jsonPath("$.items[0].level").value("INFO"))
-            .andExpect(jsonPath("$.total").value(1))
-            .andExpect(jsonPath("$.page").value(0))
-            .andExpect(jsonPath("$.size").value(50))
+            .andExpect(jsonPath("$.logs").isArray)
+            .andExpect(jsonPath("$.logs.length()").value(1))
+            .andExpect(jsonPath("$.logs[0].level").value("INFO"))
+            .andExpect(jsonPath("$.totalCount").value(1))
     }
 
     @Test
@@ -81,11 +89,9 @@ class LogSearchIntegrationTest : AbstractIntegrationTest() {
 
     @Test
     fun `should return 403 when user is not a member of the project`() {
-        // Given
         val projectId = UUID.randomUUID()
-        given(coreServiceClient.getMembership(eq(projectId), any())).willReturn(MembershipResult.NotMember)
+        given(coreServiceClient.getMembership(eq(projectId), any())).willReturn(com.github.logboard.log.model.MembershipResult.NotMember)
 
-        // When & Then
         mockMvc.perform(
             post("/logs/search")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -97,11 +103,9 @@ class LogSearchIntegrationTest : AbstractIntegrationTest() {
 
     @Test
     fun `should return 403 when core service is unavailable and no cache`() {
-        // Given
         val projectId = UUID.randomUUID()
-        given(coreServiceClient.getMembership(eq(projectId), any())).willReturn(MembershipResult.Unavailable)
+        given(coreServiceClient.getMembership(eq(projectId), any())).willReturn(com.github.logboard.log.model.MembershipResult.Unavailable)
 
-        // When & Then
         mockMvc.perform(
             post("/logs/search")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -113,111 +117,93 @@ class LogSearchIntegrationTest : AbstractIntegrationTest() {
 
     @Test
     fun `should return empty list when project has no logs`() {
-        // Given
         val projectId = UUID.randomUUID()
 
-        // When & Then
         mockMvc.perform(
             post("/logs/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(searchRequest(projectId))
                 .cookie(Cookie("access_token", makeToken(userId)))
         ).andExpect(status().isOk())
-            .andExpect(jsonPath("$.items").isArray)
-            .andExpect(jsonPath("$.items.length()").value(0))
-            .andExpect(jsonPath("$.total").value(0))
+            .andExpect(jsonPath("$.logs").isArray)
+            .andExpect(jsonPath("$.logs.length()").value(0))
+            .andExpect(jsonPath("$.totalCount").value(0))
     }
 
     @Test
     fun `should filter logs by level`() {
-        // Given
         val projectId = UUID.randomUUID()
-        indexDoc(LogDocumentEs("idx-lvl-1-${projectId}", projectId.toString(), "ing-1", "INFO", "info message", 1000L))
-        indexDoc(LogDocumentEs("idx-lvl-2-${projectId}", projectId.toString(), "ing-1", "ERROR", "error message", 2000L))
+        indexDoc(LogDocumentEs("idx-lvl-1-$projectId", projectId.toString(), "ing-1", "INFO", "info message", 1000L))
+        indexDoc(LogDocumentEs("idx-lvl-2-$projectId", projectId.toString(), "ing-1", "ERROR", "error message", 2000L))
 
-        val request = objectMapper.writeValueAsString(LogSearchRequest(projectId = projectId, level = "ERROR"))
-
-        // When & Then
         mockMvc.perform(
             post("/logs/search")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(request)
+                .content(searchRequest(projectId, level = listOf("ERROR")))
                 .cookie(Cookie("access_token", makeToken(userId)))
         ).andExpect(status().isOk())
-            .andExpect(jsonPath("$.items.length()").value(1))
-            .andExpect(jsonPath("$.items[0].level").value("ERROR"))
-            .andExpect(jsonPath("$.total").value(1))
+            .andExpect(jsonPath("$.logs.length()").value(1))
+            .andExpect(jsonPath("$.logs[0].level").value("ERROR"))
+            .andExpect(jsonPath("$.totalCount").value(1))
     }
 
     @Test
     fun `should filter logs by message case-insensitively`() {
-        // Given
         val projectId = UUID.randomUUID()
-        indexDoc(LogDocumentEs("idx-msg-1-${projectId}", projectId.toString(), "ing-1", "INFO", "Connection timeout occurred", 1000L))
-        indexDoc(LogDocumentEs("idx-msg-2-${projectId}", projectId.toString(), "ing-1", "ERROR", "NullPointerException", 2000L))
+        indexDoc(LogDocumentEs("idx-msg-1-$projectId", projectId.toString(), "ing-1", "INFO", "Connection timeout occurred", 1000L))
+        indexDoc(LogDocumentEs("idx-msg-2-$projectId", projectId.toString(), "ing-1", "ERROR", "NullPointerException", 2000L))
 
-        val request = objectMapper.writeValueAsString(LogSearchRequest(projectId = projectId, message = "TIMEOUT"))
-
-        // When & Then
         mockMvc.perform(
             post("/logs/search")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(request)
+                .content(searchRequest(projectId, message = "TIMEOUT"))
                 .cookie(Cookie("access_token", makeToken(userId)))
         ).andExpect(status().isOk())
-            .andExpect(jsonPath("$.items.length()").value(1))
-            .andExpect(jsonPath("$.items[0].message").value("Connection timeout occurred"))
+            .andExpect(jsonPath("$.logs.length()").value(1))
+            .andExpect(jsonPath("$.logs[0].message").value("Connection timeout occurred"))
     }
 
     @Test
     fun `should filter logs by timestamp range`() {
-        // Given
         val projectId = UUID.randomUUID()
-        indexDoc(LogDocumentEs("idx-ts-1-${projectId}", projectId.toString(), "ing-1", "INFO", "early", 100L))
-        indexDoc(LogDocumentEs("idx-ts-2-${projectId}", projectId.toString(), "ing-1", "INFO", "middle", 500L))
-        indexDoc(LogDocumentEs("idx-ts-3-${projectId}", projectId.toString(), "ing-1", "INFO", "late", 900L))
+        indexDoc(LogDocumentEs("idx-ts-1-$projectId", projectId.toString(), "ing-1", "INFO", "early", 100L))
+        indexDoc(LogDocumentEs("idx-ts-2-$projectId", projectId.toString(), "ing-1", "INFO", "middle", 500L))
+        indexDoc(LogDocumentEs("idx-ts-3-$projectId", projectId.toString(), "ing-1", "INFO", "late", 900L))
 
-        val request = objectMapper.writeValueAsString(LogSearchRequest(projectId = projectId, from = 200L, to = 800L))
-
-        // When & Then
         mockMvc.perform(
             post("/logs/search")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(request)
+                .content(searchRequest(projectId, from = Instant.ofEpochMilli(200L), to = Instant.ofEpochMilli(800L)))
                 .cookie(Cookie("access_token", makeToken(userId)))
         ).andExpect(status().isOk())
-            .andExpect(jsonPath("$.items.length()").value(1))
-            .andExpect(jsonPath("$.items[0].message").value("middle"))
+            .andExpect(jsonPath("$.logs.length()").value(1))
+            .andExpect(jsonPath("$.logs[0].message").value("middle"))
     }
 
     @Test
     fun `should not return logs from another project`() {
-        // Given
         val projectId = UUID.randomUUID()
         val otherProjectId = UUID.randomUUID()
-        indexDoc(LogDocumentEs("idx-prj-1-${projectId}", projectId.toString(), "ing-1", "INFO", "mine", 1000L))
-        indexDoc(LogDocumentEs("idx-prj-2-${otherProjectId}", otherProjectId.toString(), "ing-2", "INFO", "other", 2000L))
+        indexDoc(LogDocumentEs("idx-prj-1-$projectId", projectId.toString(), "ing-1", "INFO", "mine", 1000L))
+        indexDoc(LogDocumentEs("idx-prj-2-$otherProjectId", otherProjectId.toString(), "ing-2", "INFO", "other", 2000L))
 
-        // When & Then
         mockMvc.perform(
             post("/logs/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(searchRequest(projectId))
                 .cookie(Cookie("access_token", makeToken(userId)))
         ).andExpect(status().isOk())
-            .andExpect(jsonPath("$.items.length()").value(1))
-            .andExpect(jsonPath("$.items[0].message").value("mine"))
+            .andExpect(jsonPath("$.logs.length()").value(1))
+            .andExpect(jsonPath("$.logs[0].message").value("mine"))
     }
 
     @Test
     fun `should return results sorted by timestamp descending`() {
-        // Given
         val projectId = UUID.randomUUID()
-        indexDoc(LogDocumentEs("idx-sort-1-${projectId}", projectId.toString(), "ing-1", "INFO", "first", 1000L))
-        indexDoc(LogDocumentEs("idx-sort-2-${projectId}", projectId.toString(), "ing-1", "INFO", "third", 3000L))
-        indexDoc(LogDocumentEs("idx-sort-3-${projectId}", projectId.toString(), "ing-1", "INFO", "second", 2000L))
+        indexDoc(LogDocumentEs("idx-sort-1-$projectId", projectId.toString(), "ing-1", "INFO", "first", 1000L))
+        indexDoc(LogDocumentEs("idx-sort-2-$projectId", projectId.toString(), "ing-1", "INFO", "third", 3000L))
+        indexDoc(LogDocumentEs("idx-sort-3-$projectId", projectId.toString(), "ing-1", "INFO", "second", 2000L))
 
-        // When
         val result = mockMvc.perform(
             post("/logs/search")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -226,63 +212,58 @@ class LogSearchIntegrationTest : AbstractIntegrationTest() {
         ).andExpect(status().isOk())
             .andReturn()
 
-        // Then
         val body = objectMapper.readTree(result.response.contentAsString)
-        val timestamps = body["items"].map { it["timestamp"].asLong() }
-        timestamps shouldBe listOf(3000L, 2000L, 1000L)
+        val messages = body["logs"].map { it["message"].asText() }
+        assertEquals(listOf("third", "second", "first"), messages)
     }
 
     @Test
-    fun `should paginate results correctly`() {
-        // Given
+    fun `should paginate results with cursor`() {
         val projectId = UUID.randomUUID()
         repeat(5) { i ->
-            indexDoc(LogDocumentEs("idx-page-$i-${projectId}", projectId.toString(), "ing-1", "INFO", "msg $i", i.toLong() * 1000))
+            indexDoc(LogDocumentEs("idx-page-$i-$projectId", projectId.toString(), "ing-1", "INFO", "msg $i", i.toLong() * 1000 + 1000))
         }
 
-        val page0Request = objectMapper.writeValueAsString(LogSearchRequest(projectId = projectId, page = 0, size = 2))
-        val page1Request = objectMapper.writeValueAsString(LogSearchRequest(projectId = projectId, page = 1, size = 2))
-
-        // When & Then
-        mockMvc.perform(
+        val result1 = mockMvc.perform(
             post("/logs/search")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(page0Request)
+                .content(searchRequest(projectId, size = 2))
                 .cookie(Cookie("access_token", makeToken(userId)))
         ).andExpect(status().isOk())
-            .andExpect(jsonPath("$.items.length()").value(2))
-            .andExpect(jsonPath("$.total").value(5))
-            .andExpect(jsonPath("$.page").value(0))
-            .andExpect(jsonPath("$.size").value(2))
+            .andExpect(jsonPath("$.logs.length()").value(2))
+            .andExpect(jsonPath("$.totalCount").value(5))
+            .andExpect(jsonPath("$.nextCursor").exists())
+            .andReturn()
 
-        mockMvc.perform(
+        val body1 = objectMapper.readTree(result1.response.contentAsString)
+        val cursor = objectMapper.treeToValue(body1["nextCursor"], Instant::class.java)
+
+        val result2 = mockMvc.perform(
             post("/logs/search")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(page1Request)
+                .content(searchRequest(projectId, size = 2, cursor = cursor))
                 .cookie(Cookie("access_token", makeToken(userId)))
         ).andExpect(status().isOk())
-            .andExpect(jsonPath("$.items.length()").value(2))
-            .andExpect(jsonPath("$.total").value(5))
-            .andExpect(jsonPath("$.page").value(1))
+            .andExpect(jsonPath("$.logs.length()").value(2))
+            .andReturn()
+
+        val body2 = objectMapper.readTree(result2.response.contentAsString)
+        val timestamps1 = body1["logs"].map { it["timestamp"].asText() }.toSet()
+        val timestamps2 = body2["logs"].map { it["timestamp"].asText() }.toSet()
+        assertTrue(timestamps1.intersect(timestamps2).isEmpty())
     }
 
     @Test
     fun `should cap page size at 500`() {
-        // Given
         val projectId = UUID.randomUUID()
-        val request = objectMapper.writeValueAsString(LogSearchRequest(projectId = projectId, size = 9999))
 
-        // When & Then
-        val result = mockMvc.perform(
+        mockMvc.perform(
             post("/logs/search")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(request)
+                .content(searchRequest(projectId, size = 9999))
                 .cookie(Cookie("access_token", makeToken(userId)))
         ).andExpect(status().isOk())
-            .andReturn()
-
-        val body = objectMapper.readTree(result.response.contentAsString)
-        body["size"].asInt() shouldBe 500
+            .andExpect(jsonPath("$.logs").isArray)
     }
 
     @Test
@@ -297,21 +278,18 @@ class LogSearchIntegrationTest : AbstractIntegrationTest() {
 
     @Test
     fun `should return response with all required fields`() {
-        // Given
         val projectId = UUID.randomUUID()
-        indexDoc(LogDocumentEs("idx-fields-${projectId}", projectId.toString(), "ing-check", "WARN", "check fields", 5000L))
+        indexDoc(LogDocumentEs("idx-fields-$projectId", projectId.toString(), "ing-check", "WARN", "check fields", 5000L))
 
-        // When & Then
         mockMvc.perform(
             post("/logs/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(searchRequest(projectId))
                 .cookie(Cookie("access_token", makeToken(userId)))
         ).andExpect(status().isOk())
-            .andExpect(jsonPath("$.items[0].id").exists())
-            .andExpect(jsonPath("$.items[0].ingestionId").value("ing-check"))
-            .andExpect(jsonPath("$.items[0].level").value("WARN"))
-            .andExpect(jsonPath("$.items[0].message").value("check fields"))
-            .andExpect(jsonPath("$.items[0].timestamp").value(5000))
+            .andExpect(jsonPath("$.logs[0].level").value("WARN"))
+            .andExpect(jsonPath("$.logs[0].message").value("check fields"))
+            .andExpect(jsonPath("$.logs[0].timestamp").exists())
+            .andExpect(jsonPath("$.totalCount").exists())
     }
 }

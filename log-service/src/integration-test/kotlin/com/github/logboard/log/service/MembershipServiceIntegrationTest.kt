@@ -1,10 +1,13 @@
 package com.github.logboard.log.service
 
 import com.github.logboard.log.client.CoreServiceClientImpl
-import io.kotest.matchers.shouldBe
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -69,7 +72,7 @@ class MembershipServiceIntegrationTest {
 
         val result = buildService().getMembership(userId, projectId, token)
 
-        result shouldBe "OWNER"
+        assertEquals("OWNER", result)
     }
 
     @Test
@@ -83,7 +86,7 @@ class MembershipServiceIntegrationTest {
 
         buildService().getMembership(userId, projectId, token)
 
-        redisTemplate.opsForValue().get(cacheKey) shouldBe "ADMIN"
+        assertEquals("ADMIN", redisTemplate.opsForValue().get(cacheKey))
     }
 
     @Test
@@ -94,8 +97,8 @@ class MembershipServiceIntegrationTest {
 
         val result = service.getMembership(userId, projectId, token)
 
-        result shouldBe "READER"
-        mockWebServer.requestCount shouldBe requestsBefore
+        assertEquals("READER", result)
+        assertEquals(requestsBefore, mockWebServer.requestCount)
     }
 
     @Test
@@ -104,8 +107,8 @@ class MembershipServiceIntegrationTest {
 
         val result = buildService().getMembership(userId, projectId, token)
 
-        result shouldBe null
-        redisTemplate.opsForValue().get(cacheKey) shouldBe "NONE"
+        assertNull(result)
+        assertEquals("NONE", redisTemplate.opsForValue().get(cacheKey))
     }
 
     @Test
@@ -116,8 +119,8 @@ class MembershipServiceIntegrationTest {
 
         val result = service.getMembership(userId, projectId, token)
 
-        result shouldBe null
-        mockWebServer.requestCount shouldBe requestsBefore
+        assertNull(result)
+        assertEquals(requestsBefore, mockWebServer.requestCount)
     }
 
     @Test
@@ -126,8 +129,8 @@ class MembershipServiceIntegrationTest {
 
         val result = buildService().getMembership(userId, projectId, token)
 
-        result shouldBe null
-        redisTemplate.opsForValue().get(cacheKey) shouldBe null
+        assertNull(result)
+        assertNull(redisTemplate.opsForValue().get(cacheKey))
     }
 
     @Test
@@ -142,7 +145,8 @@ class MembershipServiceIntegrationTest {
         buildService().getMembership(userId, projectId, token)
 
         val ttl = redisTemplate.getExpire(cacheKey)
-        (ttl != null && ttl > 0L) shouldBe true
+        assertNotNull(ttl)
+        assertTrue(ttl!! > 0L)
     }
 
     @Test
@@ -161,7 +165,7 @@ class MembershipServiceIntegrationTest {
         service.getMembership(userId, projectId, token)
         service.getMembership(userId, projectId2, token)
 
-        redisTemplate.opsForValue().get("membership:$userId:$projectId") shouldBe "OWNER"
-        redisTemplate.opsForValue().get("membership:$userId:$projectId2") shouldBe "OWNER"
+        assertEquals("OWNER", redisTemplate.opsForValue().get("membership:$userId:$projectId"))
+        assertEquals("OWNER", redisTemplate.opsForValue().get("membership:$userId:$projectId2"))
     }
 }
