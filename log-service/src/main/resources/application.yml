@@ -56,6 +56,9 @@ clickhouse:
 jwt:
   secret: ${JWT_SECRET:mySecretKeyForLogBoardApplicationWhichIsVeryLongAndSecure123456789012345}
 
+api-key:
+  hmac-secret: ${API_KEY_HMAC_SECRET:default-hmac-secret-for-development-only}
+
 core:
   service:
     url: ${CORE_SERVICE_URL:http://localhost:8080}

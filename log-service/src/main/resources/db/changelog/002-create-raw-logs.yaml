@@ -1,0 +1,60 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-raw-logs
+      author: logboard
+      changes:
+        - createTable:
+            tableName: raw_logs
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: project_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ingestion_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: level
+                  type: VARCHAR(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: message
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: timestamp
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: processed_at
+                  type: TIMESTAMP
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+                  defaultValueComputed: NOW()
+        - createIndex:
+            tableName: raw_logs
+            indexName: idx_raw_logs_ingestion_id
+            columns:
+              - column:
+                  name: ingestion_id
+        - createIndex:
+            tableName: raw_logs
+            indexName: idx_raw_logs_processed_at
+            columns:
+              - column:
+                  name: processed_at

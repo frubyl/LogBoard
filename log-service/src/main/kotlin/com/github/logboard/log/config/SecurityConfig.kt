@@ -1,5 +1,6 @@
 package com.github.logboard.log.config
 
+import com.github.logboard.log.security.ApiKeyAuthenticationFilter
 import com.github.logboard.log.security.JwtAuthenticationFilter
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -12,7 +13,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 class SecurityConfig(
-    private val jwtAuthenticationFilter: JwtAuthenticationFilter
+    private val jwtAuthenticationFilter: JwtAuthenticationFilter,
+    private val apiKeyAuthenticationFilter: ApiKeyAuthenticationFilter
 ) {
 
     @Bean
@@ -28,6 +30,7 @@ class SecurityConfig(
                     response.sendError(HttpStatus.UNAUTHORIZED.value(), "Unauthorized")
                 }
             }
+            .addFilterBefore(apiKeyAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
             .build()
 }
