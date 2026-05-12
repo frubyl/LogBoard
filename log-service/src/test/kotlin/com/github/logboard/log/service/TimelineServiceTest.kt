@@ -1,10 +1,12 @@
 package com.github.logboard.log.service
 
-import com.github.logboard.log.dto.TimelineBucket
+import com.github.logboard.log.dto.TimelineItem
 import com.github.logboard.log.dto.TimelineRequest
 import com.github.logboard.log.repository.ClickHouseLogRepository
-import io.kotest.core.spec.style.DescribeSpec
-import io.kotest.matchers.shouldBe
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.clearInvocations
@@ -12,58 +14,100 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import java.time.Instant
 import java.util.UUID
 
-class TimelineServiceTest : DescribeSpec({
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+class TimelineServiceTest {
 
-    val repository = mock<ClickHouseLogRepository>()
-    val service = TimelineService(repository)
+    private val repository = mock<ClickHouseLogRepository>()
+    private val service = TimelineService(repository)
 
-    val projectId = UUID.randomUUID()
+    private val projectId = UUID.randomUUID()
 
-    beforeEach {
+    @BeforeEach
+    fun setUp() {
         clearInvocations(repository)
-        whenever(repository.timeline(any(), any(), any(), any(), anyOrNull())).thenReturn(emptyList())
+        whenever(repository.timeline(any(), any(), any(), any(), anyOrNull(), anyOrNull())).thenReturn(emptyList())
     }
 
-    describe("getTimeline") {
+    @Test
+    fun `delegates to repository with correct projectId, from, to`() {
+        val from = Instant.ofEpochMilli(0L)
+        val to = Instant.ofEpochMilli(1000L)
+        service.getTimeline(TimelineRequest(projectId, from = from, to = to))
 
-        it("делегирует вызов в репозиторий с правильными параметрами") {
-            service.getTimeline(TimelineRequest(projectId, from = 0L, to = 1000L, bucketMs = 60000L))
-
-            verify(repository).timeline(
-                eq(projectId.toString()), eq(0L), eq(1000L), eq(60000L), eq(null)
-            )
-        }
-
-        it("передаёт фильтр уровня в репозиторий") {
-            service.getTimeline(TimelineRequest(projectId, 0L, 1000L, 60000L, level = "ERROR"))
-
-            verify(repository).timeline(any(), any(), any(), any(), eq("ERROR"))
-        }
-
-        it("возвращает пустой список бакетов если нет данных") {
-            val result = service.getTimeline(TimelineRequest(projectId, 0L, 1000L, 60000L))
-
-            result.buckets shouldBe emptyList()
-        }
-
-        it("маппит бакеты из репозитория в ответ") {
-            val buckets = listOf(
-                TimelineBucket(0L, "INFO", 5L),
-                TimelineBucket(60000L, "ERROR", 2L)
-            )
-            whenever(repository.timeline(any(), any(), any(), any(), anyOrNull())).thenReturn(buckets)
-
-            val result = service.getTimeline(TimelineRequest(projectId, 0L, 120000L, 60000L))
-
-            result.buckets shouldBe buckets
-        }
-
-        it("передаёт projectId как строку в репозиторий") {
-            service.getTimeline(TimelineRequest(projectId, 0L, 1000L, 60000L))
-
-            verify(repository).timeline(eq(projectId.toString()), any(), any(), any(), anyOrNull())
-        }
+        verify(repository).timeline(
+            eq(projectId.toString()), eq(0L), eq(1000L), any(), anyOrNull(), anyOrNull()
+        )
     }
-})
+
+    @Test
+    fun `passes level list to repository`() {
+        val from = Instant.ofEpochMilli(0L)
+        val to = Instant.ofEpochMilli(1000L)
+        service.getTimeline(TimelineRequest(projectId, from, to, level = listOf("ERROR", "WARN")))
+
+        verify(repository).timeline(any(), any(), any(), any(), eq(listOf("ERROR", "WARN")), anyOrNull())
+    }
+
+    @Test
+    fun `passes message filter to repository`() {
+        val from = Instant.ofEpochMilli(0L)
+        val to = Instant.ofEpochMilli(1000L)
+        service.getTimeline(TimelineRequest(projectId, from, to, message = "timeout"))
+
+        verify(repository).timeline(any(), any(), any(), any(), anyOrNull(), eq("timeout"))
+    }
+
+    @Test
+    fun `returns empty list when repository returns no data`() {
+        val from = Instant.ofEpochMilli(0L)
+        val to = Instant.ofEpochMilli(1000L)
+        val result = service.getTimeline(TimelineRequest(projectId, from, to))
+
+        assertEquals(emptyList<TimelineItem>(), result)
+    }
+
+    @Test
+    fun `returns items from repository`() {
+        val items = listOf(
+            TimelineItem(Instant.ofEpochMilli(0L), 5L, 1L, 2L),
+            TimelineItem(Instant.ofEpochMilli(60_000L), 3L, 0L, 1L)
+        )
+        whenever(repository.timeline(any(), any(), any(), any(), anyOrNull(), anyOrNull())).thenReturn(items)
+
+        val from = Instant.ofEpochMilli(0L)
+        val to = Instant.ofEpochMilli(120_000L)
+        val result = service.getTimeline(TimelineRequest(projectId, from, to))
+
+        assertEquals(items, result)
+    }
+
+    @Test
+    fun `calculates 1-minute buckets for range up to 1 hour`() {
+        val from = Instant.ofEpochMilli(0L)
+        val to = Instant.ofEpochMilli(3_600_000L)
+        service.getTimeline(TimelineRequest(projectId, from, to))
+
+        verify(repository).timeline(any(), any(), any(), eq(60_000L), anyOrNull(), anyOrNull())
+    }
+
+    @Test
+    fun `calculates 30-minute buckets for range up to 24 hours`() {
+        val from = Instant.ofEpochMilli(0L)
+        val to = Instant.ofEpochMilli(86_400_000L)
+        service.getTimeline(TimelineRequest(projectId, from, to))
+
+        verify(repository).timeline(any(), any(), any(), eq(1_800_000L), anyOrNull(), anyOrNull())
+    }
+
+    @Test
+    fun `calculates 1-hour buckets for range up to 7 days`() {
+        val from = Instant.ofEpochMilli(0L)
+        val to = Instant.ofEpochMilli(604_800_000L)
+        service.getTimeline(TimelineRequest(projectId, from, to))
+
+        verify(repository).timeline(any(), any(), any(), eq(3_600_000L), anyOrNull(), anyOrNull())
+    }
+}
