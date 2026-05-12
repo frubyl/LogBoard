@@ -10,6 +10,9 @@ spring:
 jwt:
   secret: testSecretKeyForLogBoardIntegrationTestsWhichIsVeryLongAndSecure12345678
 
+api-key:
+  hmac-secret: test-hmac-secret-for-integration-tests
+
 clickhouse:
   username: default
   password: ""
