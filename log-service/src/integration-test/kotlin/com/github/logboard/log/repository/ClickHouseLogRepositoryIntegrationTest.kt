@@ -10,7 +10,9 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.springframework.jdbc.core.JdbcTemplate
 import org.testcontainers.containers.GenericContainer
+import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.utility.DockerImageName
+import java.time.Duration
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ClickHouseLogRepositoryIntegrationTest {
@@ -21,6 +23,7 @@ class ClickHouseLogRepositoryIntegrationTest {
             withEnv("CLICKHOUSE_DB", "default")
             withEnv("CLICKHOUSE_USER", "default")
             withEnv("CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT", "1")
+            waitingFor(Wait.forHttp("/ping").forPort(8123).withStartupTimeout(Duration.ofSeconds(60)))
         }
 
     private lateinit var dataSource: HikariDataSource

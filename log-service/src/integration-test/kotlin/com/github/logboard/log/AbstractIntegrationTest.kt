@@ -17,10 +17,12 @@ import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.testcontainers.containers.GenericContainer
+import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.elasticsearch.ElasticsearchContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.utility.DockerImageName
+import java.time.Duration
 import java.util.Date
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -55,6 +57,7 @@ abstract class AbstractIntegrationTest {
             .withEnv("CLICKHOUSE_DB", "default")
             .withEnv("CLICKHOUSE_USER", "default")
             .withEnv("CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT", "1")
+            .waitingFor(Wait.forHttp("/ping").forPort(8123).withStartupTimeout(Duration.ofSeconds(60)))
             .withReuse(true)
 
         @Container
