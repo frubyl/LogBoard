@@ -35,6 +35,7 @@ dependencies {
     implementation("com.clickhouse:clickhouse-jdbc:0.6.0-patch5") {
         exclude(group = "com.fasterxml.jackson.core")
     }
+    implementation("org.apache.httpcomponents.client5:httpclient5:5.3.1")
     implementation("com.zaxxer:HikariCP:5.1.0")
 
     // Cache

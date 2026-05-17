@@ -31,3 +31,9 @@ services:
       ELASTICSEARCH_URIS: http://elasticsearch:9200
       JWT_SECRET: devSecretKeyForLogBoardApplicationWhichIsVeryLongAndSecure
       API_KEY_HMAC_SECRET: devHmacSecretForApiKeyHashingLogBoard
+      CLICKHOUSE_URL: jdbc:clickhouse://clickhouse:8123/default
+      CLICKHOUSE_USERNAME: logboard
+      CLICKHOUSE_PASSWORD: logboard
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      CORE_SERVICE_URL: http://app:8080

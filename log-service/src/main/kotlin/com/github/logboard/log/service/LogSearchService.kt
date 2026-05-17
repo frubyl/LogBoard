@@ -10,6 +10,7 @@ import com.github.logboard.log.dto.LogSearchResponse
 import com.github.logboard.log.model.LogDocumentEs
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
+import org.springframework.data.elasticsearch.NoSuchIndexException
 import org.springframework.data.elasticsearch.client.elc.NativeQuery
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations
 import org.springframework.stereotype.Service
@@ -56,16 +57,14 @@ class LogSearchService(
             queryBuilder.withSearchAfter(listOf(cursor.toEpochMilli()))
         }
 
-        val hits = elasticsearchOperations.search(queryBuilder.build(), LogDocumentEs::class.java)
-        val entries = hits.searchHits.map { it.content.toEntry() }
-
-        val nextCursor = if (entries.size == request.size) entries.last().timestamp else null
-
-        return LogSearchResponse(
-            logs = entries,
-            totalCount = hits.totalHits,
-            nextCursor = nextCursor
-        )
+        return try {
+            val hits = elasticsearchOperations.search(queryBuilder.build(), LogDocumentEs::class.java)
+            val entries = hits.searchHits.map { it.content.toEntry() }
+            val nextCursor = if (entries.size == request.size) entries.last().timestamp else null
+            LogSearchResponse(logs = entries, totalCount = hits.totalHits, nextCursor = nextCursor)
+        } catch (e: NoSuchIndexException) {
+            LogSearchResponse(logs = emptyList(), totalCount = 0)
+        }
     }
 
     private fun LogDocumentEs.toEntry() = LogEntry(

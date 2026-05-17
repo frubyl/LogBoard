@@ -90,6 +90,38 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    container_name: logboard-clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USERNAME:-logboard}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-logboard}
+      CLICKHOUSE_DB: default
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user logboard --password logboard --query 'SELECT 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    container_name: logboard-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   log-service:
     image: ghcr.io/frubyl/logboard-log-service:latest
     container_name: logboard-log
@@ -106,12 +138,22 @@ services:
       JWT_SECRET: ${JWT_SECRET:-mySecretKeyForLogBoardApplicationWhichIsVeryLongAndSecure}
       API_KEY_HMAC_SECRET: ${API_KEY_HMAC_SECRET:-myDefaultHmacSecretForApiKeyHashingLogBoard}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      CLICKHOUSE_URL: jdbc:clickhouse://clickhouse:8123/default
+      CLICKHOUSE_USERNAME: ${CLICKHOUSE_USERNAME:-logboard}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-logboard}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CORE_SERVICE_URL: http://app:8080
     depends_on:
       db:
         condition: service_started
       elasticsearch:
         condition: service_started
       kafka:
+        condition: service_started
+      clickhouse:
+        condition: service_started
+      redis:
         condition: service_started
     restart: unless-stopped
 
@@ -131,3 +173,5 @@ volumes:
   elasticsearch_data:
   zookeeper_data:
   kafka_data:
+  clickhouse_data:
+  redis_data:

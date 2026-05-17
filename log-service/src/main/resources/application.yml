@@ -24,6 +24,9 @@ spring:
   liquibase:
     change-log: classpath:/db/changelog/db.changelog-master.yaml
     enabled: true
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/logboard}
+    user: ${DATABASE_USERNAME:logboard}
+    password: ${DATABASE_PASSWORD:logboard}
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
