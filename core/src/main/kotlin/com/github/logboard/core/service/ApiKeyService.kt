@@ -66,17 +66,21 @@ class ApiKeyService(
         val saved = apiKeyRepository.save(apiKey)
         logger.info("API key created with id: ${saved.id} for project $projectId")
 
-        kafkaTemplate.send(
-            KafkaTopics.API_KEYS,
-            saved.id.toString(),
-            ApiKeyEvent(
-                eventType = ApiKeyEvent.EventType.CREATED,
-                keyId = saved.id!!,
-                projectId = projectId,
-                keyHash = keyHash,
-                expiresAt = request.expiresAt
+        try {
+            kafkaTemplate.send(
+                KafkaTopics.API_KEYS,
+                saved.id.toString(),
+                ApiKeyEvent(
+                    eventType = ApiKeyEvent.EventType.CREATED,
+                    keyId = saved.id!!,
+                    projectId = projectId,
+                    keyHash = keyHash,
+                    expiresAt = request.expiresAt
+                )
             )
-        )
+        } catch (e: Exception) {
+            logger.warn("Failed to send API key created event to Kafka: ${e.message}")
+        }
 
         return ApiKeyCreateResponse(
             id = saved.id!!,
@@ -131,11 +135,15 @@ class ApiKeyService(
         apiKeyRepository.delete(apiKey)
         logger.info("API key $keyId revoked successfully")
 
-        kafkaTemplate.send(
-            KafkaTopics.API_KEYS,
-            keyId.toString(),
-            ApiKeyEvent(eventType = ApiKeyEvent.EventType.REVOKED, keyId = keyId, keyHash = keyHash)
-        )
+        try {
+            kafkaTemplate.send(
+                KafkaTopics.API_KEYS,
+                keyId.toString(),
+                ApiKeyEvent(eventType = ApiKeyEvent.EventType.REVOKED, keyId = keyId, keyHash = keyHash)
+            )
+        } catch (e: Exception) {
+            logger.warn("Failed to send API key revoked event to Kafka: ${e.message}")
+        }
     }
 
     private fun hmacSha256(value: String): String {
