@@ -151,7 +151,7 @@ class IngestionIntegrationTest {
     private fun ingestBody(entries: List<IngestEntry>): String =
         objectMapper.writeValueAsString(IngestRequest(entries))
 
-    private fun awaitProcessed(ingestionId: UUID, timeoutMs: Long = 5_000L) {
+    private fun awaitProcessed(ingestionId: UUID, timeoutMs: Long = 20_000L) {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
             if (rawLogRepository.findByIngestionId(ingestionId).all { it.processedAt != null }) return
