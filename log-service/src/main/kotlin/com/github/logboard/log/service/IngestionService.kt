@@ -28,11 +28,15 @@ class IngestionService(
             )
         }
         rawLogRepository.saveAll(rawLogs)
-        TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
-            override fun afterCommit() {
-                logProcessingService.processAsync(ingestionId)
-            }
-        })
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+                override fun afterCommit() {
+                    logProcessingService.processAsync(ingestionId)
+                }
+            })
+        } else {
+            logProcessingService.processAsync(ingestionId)
+        }
         return ingestionId
     }
 }
