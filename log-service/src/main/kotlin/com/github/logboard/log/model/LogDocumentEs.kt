@@ -5,7 +5,7 @@ import org.springframework.data.elasticsearch.annotations.Document
 import org.springframework.data.elasticsearch.annotations.Field
 import org.springframework.data.elasticsearch.annotations.FieldType
 
-@Document(indexName = "logs")
+@Document(indexName = "logs", createIndex = false)
 data class LogDocumentEs(
     @Id val id: String,
     @Field(type = FieldType.Keyword) val projectId: String,
