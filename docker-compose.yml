@@ -87,7 +87,7 @@ services:
       db:
         condition: service_started
       kafka:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
 
   clickhouse:
@@ -150,7 +150,7 @@ services:
       elasticsearch:
         condition: service_started
       kafka:
-        condition: service_started
+        condition: service_healthy
       clickhouse:
         condition: service_started
       redis:
