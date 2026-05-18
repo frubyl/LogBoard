@@ -108,11 +108,13 @@ class IngestionIntegrationTest {
         @JvmStatic
         @DynamicPropertySource
         fun configureProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.datasource.url") {
-                "jdbc:postgresql://${postgres.host}:${postgres.getMappedPort(5432)}/logboard_test"
-            }
+            val pgUrl = "jdbc:postgresql://${postgres.host}:${postgres.getMappedPort(5432)}/logboard_test"
+            registry.add("spring.datasource.url") { pgUrl }
             registry.add("spring.datasource.username") { "logboard" }
             registry.add("spring.datasource.password") { "logboard" }
+            registry.add("spring.liquibase.url") { pgUrl }
+            registry.add("spring.liquibase.user") { "logboard" }
+            registry.add("spring.liquibase.password") { "logboard" }
             registry.add("spring.data.redis.host") { redis.host }
             registry.add("spring.data.redis.port") { redis.getMappedPort(6379) }
             registry.add("clickhouse.url") {

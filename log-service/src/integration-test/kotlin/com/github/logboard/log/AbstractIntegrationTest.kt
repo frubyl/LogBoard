@@ -2,6 +2,7 @@ package com.github.logboard.log
 
 import com.github.logboard.log.client.CoreServiceClient
 import com.github.logboard.log.repository.LocalApiKeyRepository
+import com.github.logboard.log.repository.RawLogRepository
 import com.github.logboard.log.model.MembershipResult
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.SignatureAlgorithm
@@ -37,6 +38,9 @@ abstract class AbstractIntegrationTest {
 
     @MockBean
     protected lateinit var localApiKeyRepository: LocalApiKeyRepository
+
+    @MockBean
+    protected lateinit var rawLogRepository: RawLogRepository
 
     @BeforeEach
     fun setUpDefaultMembership() {
