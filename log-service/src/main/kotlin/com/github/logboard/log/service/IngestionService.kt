@@ -5,6 +5,8 @@ import com.github.logboard.log.model.RawLog
 import com.github.logboard.log.repository.RawLogRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.UUID
 
 @Service
@@ -26,7 +28,11 @@ class IngestionService(
             )
         }
         rawLogRepository.saveAll(rawLogs)
-        logProcessingService.processAsync(ingestionId)
+        TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+            override fun afterCommit() {
+                logProcessingService.processAsync(ingestionId)
+            }
+        })
         return ingestionId
     }
 }
